@@ -36,7 +36,6 @@ a {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 0 24px;
-  border-bottom: 1px solid var(--line);
 }
 
 .brand {

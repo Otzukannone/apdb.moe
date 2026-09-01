@@ -157,21 +157,21 @@ usort($entries, static function ($a, $b) {
 
       .post-card .card-admin-actions {
         position: absolute;
-        left: 50%;
-        top: 50%;
+        right: 10px;
+        bottom: 10px;
+        left: auto;
+        top: auto;
         z-index: 4;
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 8px 10px;
-        border: 1px solid rgba(13, 19, 35, 0.18);
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.9);
-        box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+        justify-content: flex-end;
+        gap: 6px;
+        padding: 0;
+        border: 0;
+        background: transparent;
         opacity: 0;
         visibility: hidden;
-        transform: translate(-50%, -50%) scale(0.96);
+        transform: none;
         transition: all 120ms ease;
       }
 
@@ -180,7 +180,7 @@ usort($entries, static function ($a, $b) {
       .post-card:focus-within .card-admin-actions {
         opacity: 1;
         visibility: visible;
-        transform: translate(-50%, -50%) scale(1);
+        transform: none;
       }
 
       .card-admin-actions button,
@@ -188,13 +188,13 @@ usort($entries, static function ($a, $b) {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 28px;
-        height: 28px;
+        width: 26px;
+        height: 26px;
         padding: 0;
-        border: 1px solid rgba(13, 19, 35, 0.12);
-        background: rgba(13, 19, 35, 0.02);
+        border: 1px solid rgba(13, 19, 35, 0.18);
+        background: rgba(255, 255, 255, 0.85);
         color: var(--ink);
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         cursor: pointer;
         text-decoration: none;
         border-radius: 4px;
@@ -644,6 +644,31 @@ usort($entries, static function ($a, $b) {
           const card = button.closest('.post-card');
           if (card) {
             openEditor(card);
+          }
+        });
+      });
+
+      document.querySelectorAll('.card-admin-actions form').forEach((form) => {
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+
+          const confirmed = window.confirm('Delete this entry?');
+          if (!confirmed) {
+            return;
+          }
+
+          const formData = new FormData(form);
+          const response = await fetch('../admin/atelier.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+          });
+
+          if (response.ok) {
+            const card = form.closest('.post-card');
+            if (card) {
+              card.remove();
+            }
           }
         });
       });
