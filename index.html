@@ -35,9 +35,13 @@
   </div>
 </section>
 
-<section id="more">
-  <div class="stub">— more stuff goes here later —</div>
-</section>
+<section id="more" aria-hidden="true"></section>
+
+<footer class="site-footer">
+  <div class="site-footer__inner">
+    <span>© 2026 <a href="./admin/" aria-label="admin login">apdb.moe</a></span>
+  </div>
+</footer>
 
 <script>
 (function(){
@@ -102,7 +106,7 @@
     }
   }
 
-  toFinalState();
+  window.setTimeout(toFinalState, 2200);
 })();
 </script>
 
