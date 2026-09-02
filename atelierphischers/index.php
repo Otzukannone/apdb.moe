@@ -1,23 +1,11 @@
 <?php
 session_start();
 
-$dataFile = __DIR__ . '/../data/atelierphischers.json';
+require_once __DIR__ . '/../lib/atelier-db.php';
+$database = atelierDatabase();
+atelierEnsureJsonImport($database);
 $isAdmin = !empty($_SESSION['apdb_admin']);
-
-$entries = [];
-if (file_exists($dataFile)) {
-    $raw = file_get_contents($dataFile);
-    $decoded = json_decode($raw, true);
-    if (is_array($decoded)) {
-        $entries = $decoded;
-    }
-}
-
-usort($entries, static function ($a, $b) {
-    $yearA = (int) ($a['year'] ?? 0);
-    $yearB = (int) ($b['year'] ?? 0);
-    return $yearB <=> $yearA;
-});
+$entries = atelierEntries($database);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -216,7 +204,7 @@ usort($entries, static function ($a, $b) {
         align-items: center;
         justify-content: center;
         z-index: 50;
-        padding: 24px;
+        padding: 22px;
       }
 
       .media-modal.open {
@@ -232,28 +220,79 @@ usort($entries, static function ($a, $b) {
       .media-modal__panel {
         position: relative;
         z-index: 1;
-        width: min(840px, calc(100vw - 32px));
-        max-height: 86vh;
+        width: min(1120px, calc(100vw - 44px));
+        height: min(760px, calc(100vh - 44px));
         display: grid;
-        grid-template-columns: minmax(280px, 1.2fr) minmax(220px, 0.8fr);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        background: rgba(255, 255, 255, 0.94);
+        grid-template-columns: minmax(0, 1fr) 340px;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        background: #fff;
         overflow: hidden;
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.28);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.36);
       }
 
       .media-modal__image {
-        min-height: 420px;
-        background: rgba(13, 19, 35, 0.08);
-        background-size: cover;
+        min-width: 0;
+        min-height: 0;
+        padding: 42px;
+        background-color: #11131a;
+        background-size: contain;
         background-position: center;
+        background-repeat: no-repeat;
+        background-origin: content-box;
+      }
+
+      .media-modal__image video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .media-modal__nav {
+        position: absolute;
+        top: 50%;
+        z-index: 2;
+        width: 34px;
+        height: 34px;
+        transform: translateY(-50%);
+        border: 1px solid rgba(255,255,255,0.5);
+        border-radius: 50%;
+        background: rgba(0,0,0,0.55);
+        color: #fff;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .media-modal__nav--previous { left: 16px; }
+      .media-modal__nav--next { right: 16px; }
+
+      .media-modal__nav[hidden],
+      .media-modal__counter[hidden] {
+        display: none;
+      }
+
+      .media-modal__counter {
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        z-index: 2;
+        transform: translateX(-50%);
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(0,0,0,0.58);
+        color: #fff;
+        font-size: 0.68rem;
+        letter-spacing: 0.08em;
       }
 
       .media-modal__content {
-        padding: 24px 22px 20px;
+        min-width: 0;
+        padding: 26px 24px 22px;
         display: flex;
         flex-direction: column;
         gap: 12px;
+        overflow-y: auto;
+        border-left: 1px solid rgba(13, 19, 35, 0.12);
       }
 
       .media-modal__meta {
@@ -268,7 +307,7 @@ usort($entries, static function ($a, $b) {
 
       .media-modal__content h2 {
         margin: 0;
-        font-size: clamp(1.7rem, 3vw, 2.6rem);
+        font-size: clamp(1.7rem, 2.4vw, 2.6rem);
         letter-spacing: -0.06em;
         line-height: 1;
       }
@@ -366,10 +405,18 @@ usort($entries, static function ($a, $b) {
       @media (max-width: 760px) {
         .media-modal__panel {
           grid-template-columns: 1fr;
+          width: min(560px, calc(100vw - 24px));
+          height: min(820px, calc(100vh - 24px));
         }
 
         .media-modal__image {
-          min-height: 260px;
+          min-height: min(52vh, 420px);
+          padding: 18px;
+        }
+
+        .media-modal__content {
+          border-top: 1px solid rgba(13, 19, 35, 0.12);
+          border-left: 0;
         }
       }
     </style>
@@ -380,10 +427,6 @@ usort($entries, static function ($a, $b) {
         <div class="brand">atelierphischers</div>
         <nav class="nav" aria-label="Main navigation">
           <a href="../index.html">home</a>
-          <a href="../what/">what</a>
-          <a href="../booru/">booru</a>
-          <a href="./">atelierphischers</a>
-          <a href="../tba/">tba</a>
         </nav>
       </header>
 
@@ -411,18 +454,24 @@ usort($entries, static function ($a, $b) {
               $year = htmlspecialchars((string) ($entry['year'] ?? 'draft'), ENT_QUOTES, 'UTF-8');
               $description = htmlspecialchars((string) ($entry['description'] ?? ''), ENT_QUOTES, 'UTF-8');
               $image = trim((string) ($entry['image'] ?? ''));
+              $slides = (array) ($entry['slides'] ?? []);
+              $previewSlide = $slides[0] ?? [];
+              $previewImage = trim((string) ($previewSlide['display_path'] ?? $image));
+              $previewType = (string) ($previewSlide['media_type'] ?? 'image');
               $tags = (array) ($entry['tags'] ?? []);
               $tagCsv = implode(',', array_map(static fn ($tag) => trim((string) $tag), $tags));
               $entryId = htmlspecialchars((string) ($entry['id'] ?? ''), ENT_QUOTES, 'UTF-8');
+              $slideData = htmlspecialchars(json_encode($slides, JSON_UNESCAPED_SLASHES) ?: '[]', ENT_QUOTES, 'UTF-8');
             ?>
             <div
-              class="post-card <?= $image !== '' ? 'photo-card' : 'placeholder' ?>"
-              style="<?= $image !== '' ? 'background-image: url(' . htmlspecialchars($image, ENT_QUOTES, 'UTF-8') . ');' : '' ?>"
+              class="post-card <?= $previewImage !== '' && $previewType === 'image' ? 'photo-card' : 'placeholder' ?>"
+              style="<?= $previewImage !== '' && $previewType === 'image' ? 'background-image: url(' . htmlspecialchars($previewImage, ENT_QUOTES, 'UTF-8') . ');' : '' ?>"
               data-id="<?= $entryId ?>"
               data-title="<?= $title ?>"
               data-year="<?= $year ?>"
               data-description="<?= $description !== '' ? $description : 'no notes yet.' ?>"
-              data-image="<?= htmlspecialchars($image, ENT_QUOTES, 'UTF-8') ?>"
+              data-image="<?= htmlspecialchars($previewImage, ENT_QUOTES, 'UTF-8') ?>"
+              data-slides="<?= $slideData ?>"
               data-tags="<?= htmlspecialchars($tagCsv, ENT_QUOTES, 'UTF-8') ?>"
               aria-label="Open <?= $title ?>"
               tabindex="0"
@@ -450,7 +499,7 @@ usort($entries, static function ($a, $b) {
     <div class="media-modal" id="mediaEditorModal" aria-hidden="true">
       <div class="media-modal__backdrop" data-close="true"></div>
       <div class="media-modal__panel" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
-        <button class="media-modal__close" type="button" aria-label="Close editor">×</button>
+        <button class="media-modal__close" id="editorCloseButton" type="button" aria-label="Close editor">×</button>
         <div class="media-modal__image" id="editorImagePreview"></div>
         <div class="media-modal__content">
           <div class="media-modal__meta">
@@ -497,7 +546,10 @@ usort($entries, static function ($a, $b) {
     <div class="media-modal" id="mediaModal" aria-hidden="true">
       <div class="media-modal__backdrop" data-close="true"></div>
       <div class="media-modal__panel" role="dialog" aria-modal="true" aria-labelledby="mediaTitle">
-        <button class="media-modal__close" type="button" aria-label="Close viewer">×</button>
+        <button class="media-modal__close" id="mediaCloseButton" type="button" aria-label="Close viewer">×</button>
+        <button class="media-modal__nav media-modal__nav--previous" id="previousSlide" type="button" aria-label="Previous slide">‹</button>
+        <button class="media-modal__nav media-modal__nav--next" id="nextSlide" type="button" aria-label="Next slide">›</button>
+        <span class="media-modal__counter" id="slideCounter" aria-live="polite"></span>
         <div class="media-modal__image" id="modalImage"></div>
         <div class="media-modal__content">
           <div class="media-modal__meta">
@@ -521,6 +573,9 @@ usort($entries, static function ($a, $b) {
       const modalTitle = document.getElementById('mediaTitle');
       const modalDescription = document.getElementById('mediaDescription');
       const modalTags = document.getElementById('modalTags');
+      const previousSlide = document.getElementById('previousSlide');
+      const nextSlide = document.getElementById('nextSlide');
+      const slideCounter = document.getElementById('slideCounter');
       const editorModal = document.getElementById('mediaEditorModal');
       const editorImagePreview = document.getElementById('editorImagePreview');
       const editorTitleField = document.getElementById('editorTitleField');
@@ -529,11 +584,14 @@ usort($entries, static function ($a, $b) {
       const editorTagsField = document.getElementById('editorTagsField');
       const editorDescriptionField = document.getElementById('editorDescriptionField');
       const editorIdField = document.getElementById('editorId');
-      const closeButton = document.querySelector('.media-modal__close');
+      const editorCloseButton = document.getElementById('editorCloseButton');
+      const mediaCloseButton = document.getElementById('mediaCloseButton');
       const closeTriggers = document.querySelectorAll('[data-close="true"]');
 
       let currentMode = 'grid';
       let currentDensity = 'default';
+      let currentSlides = [];
+      let currentSlideIndex = 0;
 
       function applyLayout() {
         body.classList.toggle('list-mode', currentMode === 'list');
@@ -562,6 +620,12 @@ usort($entries, static function ($a, $b) {
       });
 
       function closeModal() {
+        modalImage.querySelectorAll('video').forEach((video) => {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+        });
+        modalImage.innerHTML = '';
         modal.classList.remove('open');
         modal.setAttribute('aria-hidden', 'true');
       }
@@ -604,6 +668,11 @@ usort($entries, static function ($a, $b) {
         const description = card.dataset.description || 'no notes yet.';
         const image = card.dataset.image || '';
         const tags = (card.dataset.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+        currentSlides = JSON.parse(card.dataset.slides || '[]');
+        if (currentSlides.length === 0 && image) {
+          currentSlides = [{ display_path: image, media_type: 'image', mime_type: 'image/*' }];
+        }
+        currentSlideIndex = 0;
 
         modalTitle.textContent = title;
         modalYear.textContent = year;
@@ -617,17 +686,52 @@ usort($entries, static function ($a, $b) {
           modalTags.appendChild(tagNode);
         });
 
-        if (image) {
-          modalImage.style.backgroundImage = 'url("' + image + '")';
-          modalImage.style.backgroundColor = '#dfe4ea';
-        } else {
-          modalImage.style.backgroundImage = 'linear-gradient(135deg, rgba(12,14,29,0.08), rgba(12,14,29,0.02))';
-          modalImage.style.backgroundColor = '#eef0f3';
-        }
+        renderCurrentSlide();
 
         modal.classList.add('open');
         modal.setAttribute('aria-hidden', 'false');
       }
+
+      function renderCurrentSlide() {
+        const slide = currentSlides[currentSlideIndex];
+        modalImage.innerHTML = '';
+        modalImage.style.backgroundImage = '';
+        modalImage.style.backgroundColor = '#11131a';
+
+        if (slide) {
+          if (slide.media_type === 'video') {
+            const video = document.createElement('video');
+            video.controls = true;
+            video.preload = 'metadata';
+            const source = document.createElement('source');
+            source.src = slide.display_path;
+            source.type = slide.mime_type || 'video/mp4';
+            video.appendChild(source);
+            modalImage.appendChild(video);
+          } else if (slide.display_path) {
+            modalImage.style.backgroundImage = 'url("' + slide.display_path.replace(/"/g, '%22') + '")';
+            modalImage.style.backgroundColor = '#dfe4ea';
+          }
+        }
+
+        const hasSlides = currentSlides.length > 1;
+        previousSlide.hidden = !hasSlides;
+        nextSlide.hidden = !hasSlides;
+        slideCounter.hidden = !hasSlides;
+        slideCounter.textContent = (currentSlideIndex + 1) + ' / ' + currentSlides.length;
+      }
+
+      previousSlide.addEventListener('click', () => {
+        if (currentSlides.length < 2) return;
+        currentSlideIndex = (currentSlideIndex - 1 + currentSlides.length) % currentSlides.length;
+        renderCurrentSlide();
+      });
+
+      nextSlide.addEventListener('click', () => {
+        if (currentSlides.length < 2) return;
+        currentSlideIndex = (currentSlideIndex + 1) % currentSlides.length;
+        renderCurrentSlide();
+      });
 
       document.querySelectorAll('.post-card').forEach((card) => {
         card.addEventListener('click', (event) => {
@@ -708,8 +812,10 @@ usort($entries, static function ($a, $b) {
         });
       }
 
-      closeButton.addEventListener('click', () => {
+      mediaCloseButton.addEventListener('click', () => {
         closeModal();
+      });
+      editorCloseButton.addEventListener('click', () => {
         closeEditor();
       });
       closeTriggers.forEach((trigger) => trigger.addEventListener('click', () => {
