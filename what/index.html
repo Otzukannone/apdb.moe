@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>what — apdb.moe</title>
+    <title>what</title>
     <link rel="icon" type="image/png" href="../assets/yuyuk.png" />
     <link rel="stylesheet" href="../shared.css" />
     <style>
@@ -32,7 +32,13 @@
         overflow-x: hidden;
         overflow-y: auto;
         scrollbar-width: none;
-        background: var(--desktop-bg);
+        background: linear-gradient(to bottom, rgb(255, 194, 237) 0%, rgb(255, 224, 249) 100%);
+      }
+
+      .site-footer {
+        border-top: none;
+        margin-top: 0;
+        padding-top: 0;
       }
 
       html {
@@ -105,6 +111,10 @@
         overflow: hidden;
         user-select: none;
         transition: opacity 0.2s ease, transform 0.2s ease, height 0.2s ease;
+      }
+
+      .window__body {
+        user-select: text;
       }
 
       .window.is-active {
@@ -324,7 +334,7 @@
       .profile-card {
         background: #f1d2a8;
         border: 3px solid rgba(13, 19, 35, 0.7);
-        border-radius: 8px;
+        border-radius: 0;
         padding: 0;
         overflow: hidden;
       }
@@ -351,8 +361,6 @@
         position: relative;
         margin-top: 8px;
         background: #d7c8a6;
-        border: 3px solid rgba(13, 19, 35, 0.7);
-        border-radius: 0 0 10px 10px;
         overflow: hidden;
       }
 
@@ -538,7 +546,7 @@
           <a href="./">what</a>
           <a href="../booru/">booru</a>
           <a href="../atelierphischers/">atelierphischers</a>
-          <a href="../tba/">tba</a>
+          <a href="../blog/">blog</a>
         </nav>
       </header>
 
@@ -565,10 +573,10 @@
             </p>
             <ul class="profile-links" aria-label="Open sections">
               <li><a href="#" class="profile-link" data-window="about">about me</a></li>
-              <li><a href="#" class="profile-link" data-window="contact">contact</a></li>
-              <li><a href="#" class="profile-link" data-window="skills">software skills</a></li>
-              <li><a href="#" class="profile-link" data-window="education">education</a></li>
-              <li><a href="#" class="profile-link" data-window="experience">experience</a></li>
+              <li><a href="#" class="profile-link" data-window="contact">links</a></li>
+              <li><a href="#" class="profile-link" data-window="skills">what i do</a></li>
+              <li><a href="#" class="profile-link" data-window="education">what i like</a></li>
+              <li><a href="#" class="profile-link" data-window="experience">events</a></li>
             </ul>
           </div>
         </section>
@@ -583,9 +591,11 @@
           </div>
           <div class="window__body">
             <p class="window-copy">
-              Lorem Ipsum is simply dummy text of the printing and typesetting industry. Has been the
-              industry’s standard dummy text ever since the when sed adipiscing sed sit amet consectetur
-              tempor adipiscing an unknown printer took a galley specimen has survived centuries text ever since.
+              Observations and Research Page 🔭
+              Bottom Feed Operations Command 📂
+              Monochromatic Thinking ♟️
+              Trespassers will be shot 💥
+              - pageapdfsds 2026
             </p>
             <p class="window-copy">
               This page is a living archive of projects, experiments, references, and personal notes.
@@ -595,7 +605,7 @@
 
         <section class="window window--green" id="window-education" data-name="education" style="left: 1018px; top: 18px; width: 420px; height: 360px;">
           <div class="window__header">
-            <div class="window__title">education</div>
+            <div class="window__title">what i like</div>
             <div class="window__controls" aria-label="window actions">
               <button type="button" aria-label="minimize education window" data-action="minimize"></button>
               <button type="button" aria-label="close education window" data-action="close"></button>
@@ -615,7 +625,7 @@
 
         <section class="window window--blue" id="window-skills" data-name="skills" style="left: 485px; top: 330px; width: 480px; height: 255px;">
           <div class="window__header">
-            <div class="window__title">software skills</div>
+            <div class="window__title">what i do</div>
             <div class="window__controls" aria-label="window actions">
               <button type="button" aria-label="minimize skills window" data-action="minimize"></button>
               <button type="button" aria-label="close skills window" data-action="close"></button>
@@ -633,7 +643,7 @@
 
         <section class="window window--purple contact-window" id="window-contact" data-name="contact" style="left: 32px; top: 462px;">
           <div class="window__header">
-            <div class="window__title">contact</div>
+            <div class="window__title">links</div>
             <div class="window__controls" aria-label="window actions">
               <button type="button" aria-label="minimize contact window" data-action="minimize"></button>
               <button type="button" aria-label="close contact window" data-action="close"></button>
@@ -651,7 +661,7 @@
 
         <section class="window window--red" id="window-experience" data-name="experience" style="left: 1018px; top: 420px; width: 420px; height: 380px;">
           <div class="window__header">
-            <div class="window__title">experience</div>
+            <div class="window__title">events</div>
             <div class="window__controls" aria-label="window actions">
               <button type="button" aria-label="minimize experience window" data-action="minimize"></button>
               <button type="button" aria-label="close experience window" data-action="close"></button>
@@ -659,16 +669,16 @@
           </div>
           <div class="window__body info-block">
             <div>
-              <h3>2020–21</h3>
-              <p class="window-copy">Dolor minim sit amet consectetur tempor adipiscing labore elit sed.</p>
+              <h3>YY-MM-DD</h3>
+              <p class="window-copy">blank</p>
             </div>
             <div>
-              <h3>2021–22</h3>
-              <p class="window-copy">Dolor minim sit amet consectetur tempor adipiscing labore elit sed.</p>
+              <h3>YY-MM-DD</h3>
+              <p class="window-copy">blank</p>
             </div>
             <div>
-              <h3>2022–23</h3>
-              <p class="window-copy">Dolor minim sit amet consectetur tempor adipiscing labore elit sed.</p>
+              <h3>YY-MM-DD</h3>
+              <p class="window-copy">blank</p>
             </div>
           </div>
         </section>
@@ -678,8 +688,7 @@
 
       <footer class="site-footer">
         <div class="site-footer__inner">
-          <span>© 2026 <a href="../">apdb.moe</a></span>
-          <a href="../admin/">admin</a>
+          <span>© 2026 <a href="../admin/">apdb.moe</a></span>
         </div>
       </footer>
     </div>

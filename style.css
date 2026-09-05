@@ -155,11 +155,11 @@ body.edit-mode{ user-select:none; }
   letter-spacing:.05em;
   white-space:nowrap;
   padding-left:100%;
-  animation:ticker 9s linear infinite;
+  animation:ticker 14s linear infinite;
 }
 @keyframes ticker{
   0%{ transform:translateX(0); }
-  100%{ transform:translateX(-140%); }
+  100%{ transform:translateX(-100%); }
 }
 #bandGroup .pfp{
   position:absolute;
@@ -291,15 +291,14 @@ body.edit-mode{ user-select:none; }
 }
 
 .site-footer {
-  position:fixed;
-  left:0;
-  bottom:0;
+  position: relative;
   z-index: 2;
+  margin-top: 36px;
   padding: 2rem 1rem 3rem;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  width:100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
 }
 
 .site-footer__inner {
