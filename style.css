@@ -1,0 +1,379 @@
+/*
+  ============================================================
+  apdb.moe mockup — v3
+  ============================================================
+  The intro is a fixed single viewport (#hero, 100dvh) — no page
+  scroll involved. Two phases, both just local CSS position changes:
+
+    phase 1 (idle)    — band+pfp+ticker only, vertically centered.
+    phase 2 (dropped) — band moves down (top: --band-top -> --band-top-dropped),
+                         vacating the center for the RPG-Maker menu,
+                         which fades in at a fixed --menu-top.
+
+  #more is a normal section below #hero, reached by ordinary manual
+  scrolling — nothing here auto-scrolls the document.
+
+  There's also a drag-to-reposition "edit mode" (devbar, bottom-left
+  readout) so the band/menu top offsets can be tuned visually instead
+  of by hand-editing the CSS variables below.
+*/
+
+@font-face{
+  font-family:'Sazanami Gothic';
+  src: url(data:font/woff2;base64,__FONT_BASE64__) format('woff2');
+  font-weight:400;
+  font-style:normal;
+  font-display:swap;
+}
+
+:root{
+  --ink:        #0c0e1d;
+  --paper:      #ffffff;
+  --grey-mid:   #8c8c94;
+  --grey-soft:  #b9b9c0;
+  --box-fill:   #e3e3e3;
+  --font-main: 'Sazanami Gothic', 'Consolas', 'DejaVu Sans Mono', 'Lucida Console', monospace;
+
+  /* ---- the three tunable vertical positions (% of #hero height) ----
+     these are exactly what "edit positions" mode drags around */
+  --band-top:         29.5%; 
+  --band-top-dropped: 100%;  
+  --menu-top:         34%;   
+
+  /* everything below is sizing/cosmetic, not repositioned by drag */
+  --band-height:   28.4%;
+  --pfp-size:      169%;   
+  --pfp-top:       -35.8%; 
+  --pfp-right:     6.1%;   
+  --title-left:    4.84%;
+  --title-top:     calc(26% - 5px);    
+  --title-size:    clamp(16px, 4.5vw, 72px);
+  --ticker-top:    61%;    
+  --ticker-width:  58.7%;
+  --ticker-height: 26.7%;  
+  --ticker-size:   clamp(9px, 1.35vw, 22px);
+
+  --slot-width:    min(92vw, 620px);
+  --slot-height:   clamp(230px, 32dvh, 400px);
+  --row-size:      clamp(12px, 1.5vw, 24px);
+  
+  /* Unified dot pitch for perfectly square spacing */
+  --dot-pitch:     5vw;
+  --dot-radius:    clamp(3px, 0.6vw, 12px);
+}
+
+*{box-sizing:border-box;}
+
+/* ---------- hide scrollbar ---------- */
+::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}
+html, body{
+  margin:0; padding:0;
+  background:var(--paper);
+  font-family: var(--font-main);
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+body{ overflow-x:hidden; }
+body.edit-mode{ user-select:none; }
+
+/* ---------- fixed dot backdrop — staggered & animated ---------- */
+#bgDots{
+  position:fixed; inset:0;
+  /* Two identical gradients, offset to create the staggered "in-between" pattern */
+  background-image: 
+    radial-gradient(circle, var(--ink) var(--dot-radius), transparent calc(var(--dot-radius) + 0.5px)),
+    radial-gradient(circle, var(--ink) var(--dot-radius), transparent calc(var(--dot-radius) + 0.5px));
+  background-size: var(--dot-pitch) var(--dot-pitch);
+  background-position: 0 0, calc(var(--dot-pitch) / 2) calc(var(--dot-pitch) / 2);
+  filter: drop-shadow(0 0 1px rgba(12,14,29,.12));
+  /* Change the '10s' below to adjust speed */
+  animation: driftDots 10s linear infinite;
+}
+
+/* Moves exactly one pitch-width in both directions so it loops seamlessly */
+@keyframes driftDots {
+  from {
+    background-position: 0 0, calc(var(--dot-pitch) / 2) calc(var(--dot-pitch) / 2);
+  }
+  to {
+    background-position: var(--dot-pitch) var(--dot-pitch), calc(var(--dot-pitch) * 1.5) calc(var(--dot-pitch) * 1.5);
+  }
+}
+
+/* ================= hero — fixed single-viewport intro ================= */
+#hero{
+  position:relative;
+  height:100vh; height:100dvh;
+  z-index: 10;
+}
+
+/* ---------- band + pfp group ---------- */
+#bandGroup{
+  position:absolute;
+  left:0;
+  top:var(--band-top);
+  width:100%;
+  height:var(--band-height);
+  transition: top .6s cubic-bezier(.3,.9,.4,1);
+}
+#bandGroup.dropped{ top:var(--band-top-dropped); }
+
+#bandGroup .band-bg{
+  position:absolute; inset:0;
+  background:var(--ink);
+}
+#bandGroup h1{
+  position:absolute;
+  left:var(--title-left); top:var(--title-top);
+  margin:0;
+  color:#fff;
+  font-weight:400;
+  font-size:var(--title-size);
+  letter-spacing:.08em;
+  white-space:nowrap;
+  text-shadow: 0 0 0.5px rgba(255,255,255,0.25), 0 0 10px rgba(12,14,29,0.12);
+}
+#bandGroup .ticker{
+  position:absolute;
+  left:var(--title-left); top:var(--ticker-top);
+  width:var(--ticker-width); height:var(--ticker-height);
+  overflow:hidden;
+  display:flex; align-items:center;
+  padding:0 1.2%;
+}
+#bandGroup .ticker span{
+  display:inline-block;
+  color:#fff;
+  font-size:var(--ticker-size);
+  letter-spacing:.05em;
+  white-space:nowrap;
+  padding-left:100%;
+  text-shadow: 0 0 0.5px rgba(255,255,255,0.2), 0 0 8px rgba(12,14,29,0.1);
+  animation:ticker 9s linear infinite;
+}
+@keyframes ticker{
+  0%{ transform:translateX(0); }
+  100%{ transform:translateX(-140%); }
+}
+#bandGroup .pfp{
+  position:absolute;
+  right:var(--pfp-right); top:var(--pfp-top);
+  height:var(--pfp-size);
+  aspect-ratio:1/1;
+  width:auto;
+  border-radius:50%;
+  background:#fff;
+  overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow: 0 0 0 2px rgba(12,14,29,0.9);
+}
+#bandGroup .pfp img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center;
+  background:#fff;
+}
+
+/* ---------- the menu card — fixed top offset, fades in in place ---------- */
+#cardSlot{
+  position:absolute;
+  left:50%; top:var(--menu-top);
+  transform:translateX(-50%);
+  width:var(--slot-width);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:1.2vh;
+  opacity:0;
+  transition:opacity .4s ease;
+}
+#cardSlot.show{ opacity:1; }
+
+#menuFrame{
+  position:relative;
+  width:100%;
+  height:var(--slot-height);
+}
+
+#loadingCard{
+  position:absolute; inset:0;
+  background:var(--box-fill);
+  color:var(--ink);
+  display:flex; align-items:center; justify-content:center;
+  text-align:center;
+  font-size:clamp(11px, 1.75vw, 30px);
+  line-height:1.6;
+  letter-spacing:.03em;
+  padding:2%;
+  transition:opacity .4s ease;
+}
+#loadingCard.hide{ opacity:0; pointer-events:none; }
+
+/* ---------- translucent rpg-maker windowskin ---------- */
+#menuBox{
+  position:absolute; inset:0;
+  border:3px solid rgba(255,255,255,.92);
+  border-radius:1.2vw;
+  padding:2% 0;
+  background:
+    linear-gradient(180deg, rgba(10,12,20,.62), rgba(4,5,10,.5));
+  backdrop-filter: blur(3px) saturate(1.05);
+  -webkit-backdrop-filter: blur(3px) saturate(1.05);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
+  opacity:0;
+  transform:translateY(-6px);
+  transition:opacity .45s ease, transform .45s ease;
+  display:flex; flex-direction:column; justify-content:center;
+}
+#menuBox.show{
+  opacity:1;
+  transform:translateY(0);
+}
+#menuBox .row{
+  position:relative;
+  padding:1.4% 3.4%;
+  font-size:var(--row-size);
+  color:#f2f2f2;
+  letter-spacing:.03em;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:.6em;
+  text-shadow:0 1px 2px rgba(0,0,0,.6);
+}
+#menuBox .row .num{ opacity:.55; font-size:.75em; }
+#menuBox .row.selected{
+  background:linear-gradient(90deg, rgba(180,224,197,.55) 0%, rgba(180,224,197,.28) 70%, rgba(180,224,197,0) 100%);
+}
+#menuBox .status{
+  padding:0 3.4%;
+  min-height:1.3em;
+  margin-top: 0.8em;
+  color:#bfe6cf;
+  font-size:clamp(9px, .85vw, 15px);
+  letter-spacing:.05em;
+  text-shadow:0 1px 2px rgba(0,0,0,.6);
+  pointer-events:none;
+  user-select:none;
+}
+#menuHint{
+  text-align:center;
+  color:var(--grey-mid);
+  font-size:clamp(9px, .95vw, 15px);
+  letter-spacing:.05em;
+  opacity:0;
+  transition:opacity .4s ease .25s;
+}
+#menuHint.show{ opacity:1; }
+
+/* ================= more — stub for future content ================= */
+#more{
+  position:relative;
+  min-height:60vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:8vh 6vw;
+}
+#more .stub{
+  color:var(--grey-mid);
+  font-size:clamp(11px, 1.4vw, 16px);
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  border-top:1px solid var(--grey-soft);
+  border-bottom:1px solid var(--grey-soft);
+  padding:1.4em 0;
+}
+
+/* ---------- mobile / portrait: reflow into a stacked layout ---------- */
+@media (max-width: 680px), (orientation:portrait){
+  :root{
+    --band-height:   24vh;
+    --pfp-size:      92%;
+    --pfp-top:       -14%;
+    --pfp-right:     4%;
+    --title-left:    5%;
+    --title-top:     14%;
+    --title-size:    clamp(15px, 6vw, 30px);
+    --ticker-top:    58%;
+    --ticker-width:  62%;
+    --ticker-height: 30%;
+    --ticker-size:   clamp(9px, 3vw, 14px);
+
+    --menu-top:      6%;
+    --slot-width:    92vw;
+    --slot-height:   38vh;
+    --row-size:      clamp(13px, 4.2vw, 19px);
+    --dot-pitch:     14vw;
+    --dot-radius:    clamp(4px, 1.6vw, 10px);
+  }
+  #bandGroup, #bandGroup.dropped{
+    bottom:0; top:auto;
+  }
+}
+
+/* ---------- edit mode: drag-to-reposition ---------- */
+body.edit-mode #bandGroup{
+  transition:none;
+  cursor:grab;
+  outline:1px dashed #ff5c8a;
+  outline-offset:-1px;
+  touch-action:none;
+}
+body.edit-mode #cardSlot{
+  transition:none;
+  cursor:grab;
+  touch-action:none;
+}
+body.edit-mode #menuFrame{
+  outline:1px dashed #5cc8ff;
+  outline-offset:-1px;
+}
+#bandGroup.dragging, #cardSlot.dragging{ cursor:grabbing; }
+
+/* ---------- dev controls (demo-only, not part of the real site) ---------- */
+#devbar{
+  position:fixed; top:8px; left:10px;
+  z-index:50;
+  font-family:var(--font-main);
+  font-size:11px;
+  color:#666;
+  background:rgba(0,0,0,.55);
+  padding:5px 9px;
+  border-radius:6px;
+  display:flex; gap:10px; align-items:center;
+  flex-wrap:wrap;
+  max-width:calc(100% - 20px);
+}
+#devbar button{
+  font-family:var(--font-main);
+  font-size:11px;
+  background:#1c1c22;
+  color:#c9c9c9;
+  border:1px solid #3a3a44;
+  border-radius:4px;
+  padding:3px 8px;
+  cursor:pointer;
+}
+#devbar button:hover{ background:#2a2a33; }
+#devbar button.active{ background:#3a3a44; color:#fff; border-color:#5a5a68; }
+#phaseControls{ display:flex; gap:6px; align-items:center; }
+
+#editReadout{
+  position:fixed; bottom:10px; left:10px;
+  z-index:50;
+  background:rgba(0,0,0,.72);
+  color:#9cffb0;
+  font-family:var(--font-main);
+  font-size:11px;
+  line-height:1.5;
+  padding:8px 10px;
+  border-radius:6px;
+  white-space:pre;
+  margin:0;
+  user-select:text;
+  }
