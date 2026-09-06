@@ -349,7 +349,10 @@ body.edit-mode{ user-select:none; }
     /* same proportions as desktop — band height still derives from the
        pfp, so the circle always overhangs the bar. only font clamps and
        the ticker strip height are retuned for small screens. */
-    --title-size:    clamp(13px, 4.6vw, 22px);
+    /* tighter pfp cap + slightly smaller title so the end of the
+       sentence always clears the circle (real font is ~0.71em/char) */
+    --pfp-size:      min(45.44vh, 26vw);
+    --title-size:    clamp(13px, 4.2vw, 22px);
     --ticker-height: 18%;
     --ticker-size:   clamp(9px, 3vw, 14px);
 
@@ -360,11 +363,14 @@ body.edit-mode{ user-select:none; }
     --dot-pitch:     14vw;
     --dot-radius:    clamp(4px, 1.6vw, 10px);
   }
-  #bandGroup, #bandGroup.dropped{
-    /* lift the band by the pfp's lower overhang so the circle
-       clears the viewport edge instead of getting clipped */
-    bottom:calc((var(--pfp-size) - var(--band-height)) / 2);
-    top:auto;
+  #bandGroup{
+    /* intro: band starts dead-center vertically, same as desktop */
+    top:calc(50% - (var(--band-height) / 2));
+  }
+  #bandGroup.dropped{
+    /* then parks at the bottom, lifted by the pfp's lower
+       overhang so the circle clears the viewport edge */
+    top:calc(100% - var(--band-height) - ((var(--pfp-size) - var(--band-height)) / 2));
   }
 }
 
