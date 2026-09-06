@@ -6,24 +6,10 @@ if (empty($_SESSION['apdb_admin'])) {
     exit;
 }
 
-$dataFile = __DIR__ . '/../data/atelierphischers.json';
-
-function loadEntries(string $file): array {
-    if (!file_exists($file)) {
-        return [];
-    }
-
-    $raw = file_get_contents($file);
-    $decoded = json_decode($raw, true);
-    return is_array($decoded) ? $decoded : [];
-}
-
-function saveEntries(string $file, array $entries): void {
-    $json = json_encode($entries, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    file_put_contents($file, $json . PHP_EOL, LOCK_EX);
-}
-
-$entries = loadEntries($dataFile);
+require_once __DIR__ . '/../lib/atelier-db.php';
+$database = atelierDatabase();
+atelierEnsureJsonImport($database);
+$entries = atelierEntries($database);
 $notice = '';
 $editEntry = null;
 
@@ -35,10 +21,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = trim((string) ($_POST['description'] ?? ''));
     $image = trim((string) ($_POST['image'] ?? ''));
     $tags = trim((string) ($_POST['tags'] ?? ''));
+    $uploadedFiles = $_FILES['media'] ?? [];
 
     if ($action === 'delete' && $id !== '') {
-        $entries = array_values(array_filter($entries, static fn ($entry) => ($entry['id'] ?? '') !== $id));
-        saveEntries($dataFile, $entries);
+        atelierDeleteEntry($database, $id);
         $notice = 'entry deleted.';
     } elseif ($action === 'create' || $action === 'save') {
         if ($title === '') {
@@ -46,31 +32,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $tagList = array_values(array_filter(array_map('trim', preg_split('/[,\n]+/', $tags) ?: []), static fn ($tag) => $tag !== ''));
 
-            if ($action === 'save' && $id !== '') {
-                foreach ($entries as &$entry) {
-                    if (($entry['id'] ?? '') === $id) {
-                        $entry['title'] = $title;
-                        $entry['year'] = $year;
-                        $entry['description'] = $description;
-                        $entry['image'] = $image;
-                        $entry['tags'] = $tagList;
-                        $notice = 'entry updated.';
-                    }
-                }
-                unset($entry);
-            } else {
-                $entries[] = [
-                    'id' => 'atelier_' . substr(md5((string) microtime(true) . $title), 0, 8),
-                    'title' => $title,
-                    'year' => $year,
-                    'description' => $description,
-                    'image' => $image,
-                    'tags' => $tagList,
-                ];
-                $notice = 'entry added.';
+            $entryId = $action === 'save' && $id !== '' ? $id : 'atelier_' . substr(md5((string) microtime(true) . $title), 0, 8);
+            $uploadNotice = '';
+            atelierSaveEntry($database, [
+              'id' => $entryId,
+              'title' => $title,
+              'year' => $year,
+              'description' => $description,
+              'image' => $image,
+              'tags' => $tagList,
+            ]);
+            $hasUploadedFiles = array_filter((array) ($uploadedFiles['name'] ?? []), static fn ($name) => trim((string) $name) !== '');
+            if ($hasUploadedFiles !== []) {
+              try {
+                $keptSlides = array_map('intval', (array) ($_POST['keep_slides'] ?? []));
+                $keptCount = atelierUpdateSlideOrder($database, $entryId, $keptSlides);
+                atelierStoreUploads($database, $entryId, $uploadedFiles, $keptCount);
+              } catch (RuntimeException $error) {
+                $uploadNotice = $error->getMessage();
+              }
+            } elseif ($action === 'save') {
+              atelierUpdateSlideOrder($database, $entryId, array_map('intval', (array) ($_POST['keep_slides'] ?? [])));
             }
-
-            saveEntries($dataFile, $entries);
+            $notice = $uploadNotice !== '' ? $uploadNotice : ($action === 'save' ? 'entry updated.' : 'entry added.');
+            $entries = atelierEntries($database);
         }
     }
 }
@@ -242,6 +227,128 @@ $today = date('Y');
         resize: vertical;
       }
 
+      .upload-label {
+        display: grid;
+        gap: 8px;
+      }
+
+      .upload-dropzone {
+        border: 2px dashed rgba(12,14,29,0.24);
+        border-radius: 12px;
+        padding: 18px 14px;
+        text-align: center;
+        background: rgba(255,255,255,0.18);
+        cursor: pointer;
+      }
+
+      .upload-dropzone.is-dragging,
+      .upload-dropzone:hover {
+        border-color: rgba(12,14,29,0.58);
+        background: rgba(255,255,255,0.42);
+      }
+
+      .upload-dropzone strong,
+      .upload-dropzone span {
+        display: block;
+      }
+
+      .upload-dropzone span {
+        margin-top: 5px;
+        font-size: 0.68rem;
+        letter-spacing: 0.04em;
+        text-transform: none;
+      }
+
+      .upload-input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .upload-list {
+        display: grid;
+        gap: 6px;
+        margin: 8px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .upload-list li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 9px;
+        border: 1px solid rgba(12,14,29,0.12);
+        border-radius: 8px;
+        background: rgba(255,255,255,0.32);
+        cursor: grab;
+        font-size: 0.78rem;
+        letter-spacing: 0.02em;
+        text-transform: none;
+        width: 100%;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .upload-list .slide-thumb {
+        flex: 0 0 48px;
+        width: 48px;
+        height: 48px;
+        object-fit: cover;
+        border-radius: 5px;
+        background: rgba(12,14,29,0.12);
+      }
+
+      .upload-list .slide-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .upload-list li:active {
+        cursor: grabbing;
+      }
+
+      .upload-list li::before {
+        content: "::";
+        color: rgba(12,14,29,0.42);
+      }
+
+      .upload-list li.is-removed {
+        opacity: 0.45;
+        text-decoration: line-through;
+      }
+
+      .upload-list li .remove-slide {
+        margin-left: auto;
+        border: 0;
+        background: transparent;
+        color: var(--ink);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.72rem;
+      }
+
+      .existing-media-title {
+        margin: 4px 0 0;
+        font-size: 0.68rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(12,14,29,0.62);
+      }
+
+      .upload-status {
+        margin: 0;
+        color: rgba(12,14,29,0.62);
+        font-size: 0.68rem;
+        letter-spacing: 0.04em;
+        text-transform: none;
+      }
+
       .form-actions {
         display: flex;
         gap: 10px;
@@ -255,10 +362,37 @@ $today = date('Y');
       }
 
       .entry {
+        position: relative;
+        min-height: 150px;
         border: 1px solid rgba(12,14,29,0.12);
         border-radius: 14px;
         background: rgba(255,255,255,0.3);
         padding: 14px 14px 12px;
+      }
+
+      .entry-copy {
+        min-width: 0;
+        padding-right: 118px;
+      }
+
+      .entry-thumbnail {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        width: 92px;
+        height: 92px;
+        border-radius: 8px;
+        background: rgba(12,14,29,0.1);
+        object-fit: cover;
+      }
+
+      .entry-thumbnail--empty {
+        display: grid;
+        place-items: center;
+        color: rgba(12,14,29,0.45);
+        font-size: 0.64rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
       .entry-head {
@@ -332,11 +466,10 @@ $today = date('Y');
   <body>
     <div class="admin-shell">
       <div class="topbar">
-        <div class="brand">atelierphischers admin</div>
+        <div class="brand">atelierphischers</div>
         <div class="actions">
           <a class="link-button" href="../">home</a>
-          <a class="ghost" href="./dashboard.php">dashboard</a>
-          <a class="ghost" href="./logout.php">logout</a>
+          <a class="ghost" href="../atelierphischers/index.php">back</a>
         </div>
       </div>
 
@@ -348,7 +481,7 @@ $today = date('Y');
             <div class="notice"><?= htmlspecialchars($notice) ?></div>
           <?php endif; ?>
 
-          <form method="post" action="./atelier.php">
+          <form method="post" action="./atelier.php" enctype="multipart/form-data">
             <input type="hidden" name="action" value="<?= $editEntry ? 'save' : 'create' ?>" />
             <?php if ($editEntry): ?>
               <input type="hidden" name="id" value="<?= htmlspecialchars((string) ($editEntry['id'] ?? '')) ?>" />
@@ -368,6 +501,36 @@ $today = date('Y');
               image url
               <input type="url" name="image" value="<?= htmlspecialchars((string) ($editEntry['image'] ?? '')) ?>" placeholder="https://..." />
             </label>
+
+            <div class="upload-label">
+              <span>upload media</span>
+              <?php if ($editEntry && array_filter((array) ($editEntry['slides'] ?? []), static fn ($slide) => (int) ($slide['id'] ?? 0) > 0) !== []): ?>
+                <p class="existing-media-title">current media: drag to reorder or remove</p>
+                <ol class="upload-list" id="existingMediaList">
+                  <?php foreach ((array) $editEntry['slides'] as $slide): ?>
+                    <?php if ((int) ($slide['id'] ?? 0) < 1) continue; ?>
+                    <?php $slideName = trim((string) ($slide['original_name'] ?? '')) ?: basename((string) ($slide['display_path'] ?? 'media')); ?>
+                    <li draggable="true" data-slide-id="<?= (int) ($slide['id'] ?? 0) ?>">
+                      <?php if (($slide['media_type'] ?? '') === 'video'): ?>
+                        <video class="slide-thumb" src="<?= htmlspecialchars((string) ($slide['display_path'] ?? '')) ?>" muted preload="metadata"></video>
+                      <?php else: ?>
+                        <img class="slide-thumb" src="<?= htmlspecialchars((string) ($slide['display_path'] ?? '')) ?>" alt="" />
+                      <?php endif; ?>
+                      <span class="slide-name"><?= htmlspecialchars($slideName) ?></span>
+                      <button class="remove-slide" type="button">remove</button>
+                      <input type="hidden" name="keep_slides[]" value="<?= (int) ($slide['id'] ?? 0) ?>" />
+                    </li>
+                  <?php endforeach; ?>
+                </ol>
+              <?php endif; ?>
+              <label class="upload-dropzone" for="mediaInput" id="uploadDropzone">
+                <strong>drop images or videos here</strong>
+                <span>or click to choose up to 20 files</span>
+              </label>
+              <input class="upload-input" id="mediaInput" type="file" name="media[]" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/quicktime,video/mpeg,video/x-msvideo" multiple />
+              <p class="upload-status" id="uploadStatus">files will be saved in the order shown.</p>
+              <ol class="upload-list" id="uploadList"></ol>
+            </div>
 
             <label>
               tags
@@ -396,30 +559,42 @@ $today = date('Y');
             <?php else: ?>
               <?php foreach ($entries as $entry): ?>
                 <article class="entry">
-                  <div class="entry-head">
-                    <div>
-                      <strong><?= htmlspecialchars((string) ($entry['title'] ?? 'untitled')) ?></strong>
-                      <span><?= htmlspecialchars((string) ($entry['year'] ?? 'draft')) ?></span>
-                    </div>
-                  </div>
-
-                  <p><?= htmlspecialchars((string) ($entry['description'] ?? '')) ?: 'No description yet.' ?></p>
-
-                  <?php if (!empty($entry['tags'])): ?>
-                    <div class="tags">
-                      <?php foreach ((array) $entry['tags'] as $tag): ?>
-                        <span class="tag"><?= htmlspecialchars((string) $tag) ?></span>
-                      <?php endforeach; ?>
-                    </div>
+                  <?php $entrySlides = (array) ($entry['slides'] ?? []); $firstSlide = $entrySlides[0] ?? []; ?>
+                  <?php if (!empty($firstSlide['display_path'])): ?>
+                    <?php if (($firstSlide['media_type'] ?? '') === 'video'): ?>
+                      <video class="entry-thumbnail" src="<?= htmlspecialchars((string) $firstSlide['display_path']) ?>" muted preload="metadata"></video>
+                    <?php else: ?>
+                      <img class="entry-thumbnail" src="<?= htmlspecialchars((string) $firstSlide['display_path']) ?>" alt="" />
+                    <?php endif; ?>
+                  <?php else: ?>
+                    <div class="entry-thumbnail entry-thumbnail--empty" aria-hidden="true">no media</div>
                   <?php endif; ?>
+                  <div class="entry-copy">
+                    <div class="entry-head">
+                      <div>
+                        <strong><?= htmlspecialchars((string) ($entry['title'] ?? 'untitled')) ?></strong>
+                        <span><?= htmlspecialchars((string) ($entry['year'] ?? 'draft')) ?></span>
+                      </div>
+                    </div>
 
-                  <div class="entry-actions">
-                    <a class="mini" href="./atelier.php?edit=<?= urlencode((string) ($entry['id'] ?? '')) ?>">edit</a>
-                    <form method="post" action="./atelier.php" onsubmit="return confirm('delete this entry?');">
-                      <input type="hidden" name="action" value="delete" />
-                      <input type="hidden" name="id" value="<?= htmlspecialchars((string) ($entry['id'] ?? '')) ?>" />
-                      <button class="mini" type="submit">delete</button>
-                    </form>
+                    <p><?= htmlspecialchars((string) ($entry['description'] ?? '')) ?: 'No description yet.' ?></p>
+
+                    <?php if (!empty($entry['tags'])): ?>
+                      <div class="tags">
+                        <?php foreach ((array) $entry['tags'] as $tag): ?>
+                          <span class="tag"><?= htmlspecialchars((string) $tag) ?></span>
+                        <?php endforeach; ?>
+                      </div>
+                    <?php endif; ?>
+
+                    <div class="entry-actions">
+                      <a class="mini" href="./atelier.php?edit=<?= urlencode((string) ($entry['id'] ?? '')) ?>">edit</a>
+                      <form method="post" action="./atelier.php" onsubmit="return confirm('delete this entry?');">
+                        <input type="hidden" name="action" value="delete" />
+                        <input type="hidden" name="id" value="<?= htmlspecialchars((string) ($entry['id'] ?? '')) ?>" />
+                        <button class="mini" type="submit">delete</button>
+                      </form>
+                    </div>
                   </div>
                 </article>
               <?php endforeach; ?>
@@ -428,5 +603,89 @@ $today = date('Y');
         </section>
       </div>
     </div>
+
+    <script>
+      const uploadInput = document.getElementById('mediaInput');
+      const uploadDropzone = document.getElementById('uploadDropzone');
+      const uploadList = document.getElementById('uploadList');
+      const uploadStatus = document.getElementById('uploadStatus');
+      let selectedFiles = [];
+
+      function syncUploadInput() {
+        const transfer = new DataTransfer();
+        selectedFiles.forEach((file) => transfer.items.add(file));
+        uploadInput.files = transfer.files;
+        uploadStatus.textContent = selectedFiles.length + ' file' + (selectedFiles.length === 1 ? '' : 's') + ' selected; drag to set the slide order.';
+        uploadList.innerHTML = '';
+        selectedFiles.forEach((file, index) => {
+          const item = document.createElement('li');
+          item.draggable = true;
+          item.dataset.index = String(index);
+          item.textContent = (index + 1) + '. ' + file.name;
+          item.addEventListener('dragstart', () => item.classList.add('is-dragging'));
+          item.addEventListener('dragend', () => item.classList.remove('is-dragging'));
+          item.addEventListener('dragover', (event) => event.preventDefault());
+          item.addEventListener('drop', (event) => {
+            event.preventDefault();
+            const from = Number(uploadList.querySelector('.is-dragging')?.dataset.index);
+            const to = Number(item.dataset.index);
+            if (!Number.isInteger(from) || from === to) return;
+            const [file] = selectedFiles.splice(from, 1);
+            selectedFiles.splice(to, 0, file);
+            syncUploadInput();
+          });
+          uploadList.appendChild(item);
+        });
+      }
+
+      uploadInput.addEventListener('change', () => {
+        selectedFiles = [...uploadInput.files].slice(0, 20);
+        syncUploadInput();
+      });
+
+      ['dragenter', 'dragover'].forEach((eventName) => uploadDropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        uploadDropzone.classList.add('is-dragging');
+      }));
+      ['dragleave', 'drop'].forEach((eventName) => uploadDropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        uploadDropzone.classList.remove('is-dragging');
+      }));
+      uploadDropzone.addEventListener('drop', (event) => {
+        selectedFiles = [...event.dataTransfer.files].slice(0, 20);
+        syncUploadInput();
+      });
+
+      const existingMediaList = document.getElementById('existingMediaList');
+      if (existingMediaList) {
+        let draggedSlide = null;
+        existingMediaList.querySelectorAll('li').forEach((item) => {
+          item.addEventListener('dragstart', () => {
+            draggedSlide = item;
+            item.classList.add('is-dragging');
+          });
+          item.addEventListener('dragend', () => {
+            draggedSlide = null;
+            item.classList.remove('is-dragging');
+          });
+          item.addEventListener('dragover', (event) => event.preventDefault());
+          item.addEventListener('drop', (event) => {
+            event.preventDefault();
+            if (!draggedSlide || draggedSlide === item) return;
+            const items = [...existingMediaList.children];
+            const from = items.indexOf(draggedSlide);
+            const to = items.indexOf(item);
+            if (from < to) {
+              item.after(draggedSlide);
+            } else {
+              item.before(draggedSlide);
+            }
+          });
+          item.querySelector('.remove-slide').addEventListener('click', () => {
+            item.remove();
+          });
+        });
+      }
+    </script>
   </body>
 </html>
