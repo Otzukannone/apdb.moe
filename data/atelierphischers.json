@@ -1,18 +1,5 @@
 [
     {
-        "id": "atelier_001",
-        "title": "TESTLOL",
-        "year": "2025",
-        "description": "quick palette tests and loose composition studies.",
-        "tags": [
-            "study",
-            "palette",
-            "draft",
-            "chicken"
-        ],
-        "image": ""
-    },
-    {
         "id": "atelier_002",
         "title": "room notes",
         "year": "2026",
@@ -43,6 +30,16 @@
         "image": "https://cdn.creazilla.com/emojis/46008/pencil-emoji-clipart-md.png",
         "tags": [
             "yes bro"
+        ]
+    },
+    {
+        "id": "atelier_5209ea64",
+        "title": "test",
+        "year": "2026",
+        "description": "uhhh",
+        "image": "",
+        "tags": [
+            "yes"
         ]
     }
 ]

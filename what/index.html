@@ -6,6 +6,517 @@
     <title>what — apdb.moe</title>
     <link rel="icon" type="image/png" href="../assets/yuyuk.png" />
     <link rel="stylesheet" href="../shared.css" />
+    <style>
+      :root {
+        --bg-grid: rgba(13, 19, 35, 0.12);
+        --desktop-bg: rgb(255, 224, 249);
+        --dot-color: rgb(255, 117, 117);
+        --ink: #0d1323;
+        --panel: rgba(255, 255, 255, 0.92);
+        --panel-border: rgba(13, 19, 35, 0.68);
+        --shadow: rgba(13, 19, 35, 0.18);
+        --title-yellow: #f7ca62;
+        --title-pink: #ec9fe0;
+        --title-blue: #8db7ff;
+        --title-green: #7ad6c1;
+        --title-red: #ff6c6a;
+        --title-purple: #d7a4ff;
+        --title-peach: #f1b88d;
+        --dot-pitch: 5vw;
+        --dot-radius: clamp(3px, 0.6vw, 12px);
+      }
+
+      body {
+        position: relative;
+        isolation: isolate;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-width: none;
+        background: var(--desktop-bg);
+      }
+
+      html {
+        overflow-y: auto;
+        scrollbar-width: none;
+      }
+
+      html::-webkit-scrollbar {
+        display: none;
+      }
+
+      body::-webkit-scrollbar {
+        display: none;
+      }
+
+      body::before {
+        position: fixed;
+        z-index: 0;
+        inset: 0;
+        background-image:
+          radial-gradient(circle, var(--dot-color) var(--dot-radius), transparent calc(var(--dot-radius) + 0.5px)),
+          radial-gradient(circle, var(--dot-color) var(--dot-radius), transparent calc(var(--dot-radius) + 0.5px));
+        background-size: var(--dot-pitch) var(--dot-pitch);
+        background-position: 0 0, calc(var(--dot-pitch) / 2) calc(var(--dot-pitch) / 2);
+        content: "";
+        filter: drop-shadow(0 0 1px rgba(12, 14, 29, 0.12));
+        animation: drift-dots 10s linear infinite;
+        pointer-events: none;
+      }
+
+      @keyframes drift-dots {
+        from {
+          background-position: 0 0, calc(var(--dot-pitch) / 2) calc(var(--dot-pitch) / 2);
+        }
+        to {
+          background-position: var(--dot-pitch) var(--dot-pitch), calc(var(--dot-pitch) * 1.5) calc(var(--dot-pitch) * 1.5);
+        }
+      }
+
+      .site-shell {
+        position: relative;
+        z-index: 1;
+        max-width: 1480px;
+        padding-bottom: 32px;
+      }
+
+      .topbar {
+        padding-top: 18px;
+      }
+
+      .desktop {
+        position: relative;
+        min-height: 860px;
+        margin-top: 24px;
+        padding: 20px 0 10px;
+      }
+
+      .window {
+        position: absolute;
+        z-index: 1;
+        background: rgba(255,255,255,0.7);
+        border: 3px solid var(--panel-border);
+        border-radius: 0;
+        box-shadow: 6px 6px 0 rgba(13, 19, 35, 0.2);
+        overflow: hidden;
+        user-select: none;
+        transition: opacity 0.2s ease, transform 0.2s ease, height 0.2s ease;
+      }
+
+      .window.is-active {
+        z-index: 10;
+      }
+
+      .window.closed {
+        display: none;
+      }
+
+      .window.minimized {
+        height: 38px !important;
+        min-height: 38px;
+        width: var(--minimized-width, 420px) !important;
+        max-width: 100% !important;
+        overflow: hidden;
+      }
+
+      .window.minimized .window__body {
+        display: none;
+      }
+
+      .window.minimized .window__header {
+        border-bottom: 0;
+      }
+
+      .window__body {
+        overflow-y: auto;
+        max-height: calc(100% - 42px);
+        font-family: "Sazanami Gothic", "Consolas", "DejaVu Sans Mono", monospace;
+        scrollbar-color: #d96b78 #fff0f2;
+        scrollbar-width: auto;
+      }
+
+      .window__body::-webkit-scrollbar {
+        width: 17px;
+      }
+
+      .window__body::-webkit-scrollbar-track {
+        background: #fff0f2;
+        border-left: 2px solid #8f3f4a;
+        border-right: 2px solid #ffffff;
+      }
+
+      .window__body::-webkit-scrollbar-thumb {
+        min-height: 34px;
+        background: #d96b78;
+        border: 2px solid #8f3f4a;
+        border-radius: 0;
+        box-shadow: inset 1px 1px 0 #f7c8ce, inset -1px -1px 0 #a64b59;
+      }
+
+      .window__body::-webkit-scrollbar-thumb:hover {
+        background: #e5848f;
+      }
+
+      .window__body::-webkit-scrollbar-button:single-button {
+        display: block;
+        height: 17px;
+        background: #55555d;
+        border: 2px solid #3d3d45;
+        box-shadow: inset 1px 1px 0 #888891, inset -1px -1px 0 #2e2e35;
+      }
+
+      .window__body::-webkit-scrollbar-button:single-button:vertical:decrement {
+        background: #55555d url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath d='M1 5 4 2l3 3' fill='none' stroke='%23e7e7ea' stroke-width='1.5'/%3E%3C/svg%3E") center no-repeat;
+      }
+
+      .window__body::-webkit-scrollbar-button:single-button:vertical:increment {
+        background: #55555d url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath d='m1 3 3 3 3-3' fill='none' stroke='%23e7e7ea' stroke-width='1.5'/%3E%3C/svg%3E") center no-repeat;
+      }
+
+      .window__body.has-custom-scrollbar {
+        scrollbar-width: none;
+        padding-right: 20px;
+      }
+
+      .window__body.has-custom-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+
+      .window-scrollbar {
+        position: absolute;
+        z-index: 2;
+        top: 42px;
+        right: 0;
+        bottom: 0;
+        width: 8px;
+        background: #e7e7ea;
+        border-left: 1px solid #3d3d45;
+      }
+
+      .window-scrollbar__button,
+      .window-scrollbar__thumb {
+        position: absolute;
+        right: 0;
+        left: 0;
+        background: #d96b78;
+        border: 1px solid #8f3f4a;
+        border-radius: 0;
+        box-shadow: inset 1px 1px 0 #f7c8ce;
+      }
+
+      .window-scrollbar__button {
+        display: none;
+      }
+
+      .window-scrollbar__button::after {
+        display: block;
+        width: 0;
+        height: 0;
+        margin: 2px auto 0;
+        border-right: 3px solid transparent;
+        border-left: 3px solid transparent;
+        content: "";
+      }
+
+      .window-scrollbar__button--up {
+        top: 0;
+      }
+
+      .window-scrollbar__button--up::after {
+        border-bottom: 4px solid #8f3f4a;
+      }
+
+      .window-scrollbar__button--down {
+        bottom: 0;
+      }
+
+      .window-scrollbar__button--down::after {
+        margin-top: 3px;
+        border-top: 4px solid #8f3f4a;
+      }
+
+      .window-scrollbar__thumb {
+        min-height: 20px;
+        cursor: grab;
+        margin: 0;
+      }
+
+      .window-scrollbar__thumb:active {
+        cursor: grabbing;
+      }
+
+      .window__header {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 42px;
+        padding: 0 12px 0 12px;
+        border-bottom: 3px solid rgba(13, 19, 35, 0.72);
+        background: var(--title-yellow);
+        cursor: grab;
+        font-size: 0.9rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+
+      .window__header:active {
+        cursor: grabbing;
+      }
+
+      .window__title {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .window__controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .window__controls button {
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        padding: 0;
+        border: 2px solid rgba(13, 19, 35, 0.8);
+        border-radius: 2px;
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .window__controls button[data-action="close"] {
+        background: var(--title-red);
+      }
+
+      .window__controls button[data-action="minimize"] {
+        background: var(--title-green);
+      }
+
+      .window__controls button[data-action="restore"] {
+        background: var(--title-yellow);
+      }
+
+      .window--pink .window__header { background: #f3a4ef; }
+      .window--green .window__header { background: #91e1c8; }
+      .window--blue .window__header { background: #a8d3ff; }
+      .window--purple .window__header { background: #d7b4ff; }
+      .window--red .window__header { background: #ff7a78; }
+      .window--beige .window__header { background: #e8c98d; }
+
+      .window__body {
+        padding: 18px 18px 16px;
+      }
+
+      .profile-window .window__body {
+        padding: 16px 16px 12px;
+      }
+
+      .profile-card {
+        background: #f1d2a8;
+        border: 3px solid rgba(13, 19, 35, 0.7);
+        border-radius: 8px;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      .profile-card__top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 12px 0;
+      }
+
+      .profile-greeting {
+        margin: 0;
+        font-size: clamp(1.4rem, 2vw, 2.2rem);
+        line-height: 1;
+        letter-spacing: -0.04em;
+        font-weight: 700;
+        text-transform: lowercase;
+        color: #0d1323;
+      }
+
+      .profile-card__image {
+        position: relative;
+        margin-top: 8px;
+        background: #d7c8a6;
+        border: 3px solid rgba(13, 19, 35, 0.7);
+        border-radius: 0 0 10px 10px;
+        overflow: hidden;
+      }
+
+      .profile-card__image img {
+        display: block;
+        width: 100%;
+        height: 300px;
+        object-fit: cover;
+        background: #e9d7b6;
+      }
+
+      .profile-note {
+        margin: 12px 0 10px;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: rgba(13, 19, 35, 0.8);
+      }
+
+      .profile-links {
+        margin: 12px 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+
+      .profile-links a {
+        color: var(--ink);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        font-size: 0.82rem;
+        letter-spacing: 0.06em;
+        text-transform: lowercase;
+      }
+
+      .window-copy {
+        margin: 0;
+        font-size: 1rem;
+        line-height: 1.7;
+        color: rgba(13, 19, 35, 0.88);
+      }
+
+      .window-copy + .window-copy {
+        margin-top: 16px;
+      }
+
+      .window-list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .window-list li {
+        font-size: 0.96rem;
+        line-height: 1.5;
+      }
+
+      .info-block {
+        display: grid;
+        gap: 14px;
+      }
+
+      .info-block h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .skill-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px 16px;
+      }
+
+      .skill-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 50px;
+        padding: 8px 12px;
+        border: 3px solid rgba(13, 19, 35, 0.7);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.15);
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        color: #0d1323;
+      }
+
+      .skill-pill .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        border: 2px solid rgba(13, 19, 35, 0.7);
+        background: rgba(255,255,255,0.3);
+        font-size: 0.8rem;
+      }
+
+      .contact-list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .contact-list li {
+        font-size: 0.94rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        line-height: 1.5;
+      }
+
+      .contact-list strong {
+        display: inline-block;
+        min-width: 110px;
+      }
+
+      .desktop-reopen {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 18px;
+        padding-top: 8px;
+      }
+
+      .reopen-btn {
+        appearance: none;
+        border: 2px solid rgba(13, 19, 35, 0.72);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.7);
+        padding: 8px 12px;
+        font: inherit;
+        font-size: 0.74rem;
+        letter-spacing: 0.08em;
+        text-transform: lowercase;
+        cursor: pointer;
+      }
+
+      .reopen-btn:hover {
+        background: rgba(255,255,255,0.95);
+      }
+
+      @media (max-width: 1100px) {
+        .desktop {
+          min-height: 1200px;
+        }
+
+        .window {
+          position: relative;
+          left: auto !important;
+          top: auto !important;
+          width: 100% !important;
+          transform: none;
+          margin-bottom: 18px;
+        }
+
+        .desktop-reopen {
+          justify-content: flex-start;
+        }
+      }
+    </style>
   </head>
   <body>
     <div class="site-shell">
@@ -20,26 +531,139 @@
         </nav>
       </header>
 
-      <main class="hero">
-        <div class="kicker">mini-subdomain</div>
-        <h1>what.</h1>
-        <div class="card">
-          <span class="meta">what is apdb?</span>
-          <p>
-            This is the “what” space for the apdb.moe umbrella: the project, the interests,
-            the weird references, and the general rationale behind the whole thing.
-          </p>
-          <p>
-            Think of it as the front porch: a short explainer, a place to stash ideas, and a
-            landing page for the broader network of mini-sites.
-          </p>
-          <ul>
-            <li>personal webzone / experimental home base</li>
-            <li>links to media, tools, and projects</li>
-            <li>a little bit of art, internet culture, and noise</li>
-          </ul>
-        </div>
+      <main class="desktop" aria-label="About me desktop layout">
+        <section class="window window--beige profile-window" id="window-photo" data-name="profile" style="left: 32px; top: 26px; width: 370px; height: 420px;">
+          <div class="window__header">
+            <div class="window__title">apdb</div>
+            <div class="window__controls" aria-label="window actions">
+              <button type="button" aria-label="minimize profile window" data-action="minimize"></button>
+              <button type="button" aria-label="close profile window" data-action="close" disabled></button>
+            </div>
+          </div>
+          <div class="window__body">
+            <div class="profile-card">
+              <div class="profile-card__top">
+                <div class="window__title" style="font-size: 0.88rem; letter-spacing: 0.08em;">embodiment_of_apdb.png</div>
+              </div>
+              <div class="profile-card__image">
+                <img src="../assets/some2.png" alt="portrait" />
+              </div>
+            </div>
+            <p class="profile-note">
+              I make personal projects, visual experiments, and small web things with a heavy focus on atmosphere, identity, and weird little systems.
+            </p>
+            <ul class="profile-links" aria-label="Open sections">
+              <li><a href="#" class="profile-link" data-window="about">about me</a></li>
+              <li><a href="#" class="profile-link" data-window="contact">contact</a></li>
+              <li><a href="#" class="profile-link" data-window="skills">software skills</a></li>
+              <li><a href="#" class="profile-link" data-window="education">education</a></li>
+              <li><a href="#" class="profile-link" data-window="experience">experience</a></li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="window window--pink" id="window-about" data-name="about" style="left: 485px; top: 18px; width: 480px; height: 280px;">
+          <div class="window__header">
+            <div class="window__title">about me</div>
+            <div class="window__controls" aria-label="window actions">
+              <button type="button" aria-label="minimize about window" data-action="minimize"></button>
+              <button type="button" aria-label="close about window" data-action="close"></button>
+            </div>
+          </div>
+          <div class="window__body">
+            <p class="window-copy">
+              Lorem Ipsum is simply dummy text of the printing and typesetting industry. Has been the
+              industry’s standard dummy text ever since the when sed adipiscing sed sit amet consectetur
+              tempor adipiscing an unknown printer took a galley specimen has survived centuries text ever since.
+            </p>
+            <p class="window-copy">
+              This page is a living archive of projects, experiments, references, and personal notes.
+            </p>
+          </div>
+        </section>
+
+        <section class="window window--green" id="window-education" data-name="education" style="left: 1018px; top: 18px; width: 420px; height: 360px;">
+          <div class="window__header">
+            <div class="window__title">education</div>
+            <div class="window__controls" aria-label="window actions">
+              <button type="button" aria-label="minimize education window" data-action="minimize"></button>
+              <button type="button" aria-label="close education window" data-action="close"></button>
+            </div>
+          </div>
+          <div class="window__body info-block">
+            <div>
+              <h3>2014–16</h3>
+              <p class="window-copy">Dolor minim sit amet consectetur adipiscing labore elit sed adipiscing sed.</p>
+            </div>
+            <div>
+              <h3>2017–19</h3>
+              <p class="window-copy">Dolor minim sit amet consectetur adipiscing labore elit sed adipiscing sed.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="window window--blue" id="window-skills" data-name="skills" style="left: 485px; top: 330px; width: 480px; height: 255px;">
+          <div class="window__header">
+            <div class="window__title">software skills</div>
+            <div class="window__controls" aria-label="window actions">
+              <button type="button" aria-label="minimize skills window" data-action="minimize"></button>
+              <button type="button" aria-label="close skills window" data-action="close"></button>
+            </div>
+          </div>
+          <div class="window__body">
+            <div class="skill-grid">
+              <div class="skill-pill"><span class="badge">Ps</span> Photoshop</div>
+              <div class="skill-pill"><span class="badge">Ai</span> Illustrator</div>
+              <div class="skill-pill"><span class="badge">Id</span> Indesign</div>
+              <div class="skill-pill"><span class="badge">Xd</span> XD</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="window window--purple" id="window-contact" data-name="contact" style="left: 32px; top: 462px; width: 390px; height: 290px;">
+          <div class="window__header">
+            <div class="window__title">contact</div>
+            <div class="window__controls" aria-label="window actions">
+              <button type="button" aria-label="minimize contact window" data-action="minimize"></button>
+              <button type="button" aria-label="close contact window" data-action="close"></button>
+            </div>
+          </div>
+          <div class="window__body">
+            <ul class="contact-list">
+              <li><strong>twitter</strong> : @zova</li>
+              <li><strong>instagram</strong> : @zova</li>
+              <li><strong>behance</strong> : @zova</li>
+              <li><strong>email</strong> : zova@mail.com</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="window window--red" id="window-experience" data-name="experience" style="left: 1018px; top: 420px; width: 420px; height: 380px;">
+          <div class="window__header">
+            <div class="window__title">experience</div>
+            <div class="window__controls" aria-label="window actions">
+              <button type="button" aria-label="minimize experience window" data-action="minimize"></button>
+              <button type="button" aria-label="close experience window" data-action="close"></button>
+            </div>
+          </div>
+          <div class="window__body info-block">
+            <div>
+              <h3>2020–21</h3>
+              <p class="window-copy">Dolor minim sit amet consectetur tempor adipiscing labore elit sed.</p>
+            </div>
+            <div>
+              <h3>2021–22</h3>
+              <p class="window-copy">Dolor minim sit amet consectetur tempor adipiscing labore elit sed.</p>
+            </div>
+            <div>
+              <h3>2022–23</h3>
+              <p class="window-copy">Dolor minim sit amet consectetur tempor adipiscing labore elit sed.</p>
+            </div>
+          </div>
+        </section>
       </main>
+
+      <div class="desktop-reopen" aria-label="Reopen closed windows" id="reopenList"></div>
 
       <footer class="site-footer">
         <div class="site-footer__inner">
@@ -48,5 +672,243 @@
         </div>
       </footer>
     </div>
+
+    <script>
+      const reopenList = document.getElementById('reopenList');
+      const windows = [...document.querySelectorAll('.window')].filter((windowNode) => !windowNode.classList.contains('profile-window'));
+
+      function refreshReopenButtons() {
+        const closedWindows = [...document.querySelectorAll('.window.closed')];
+        reopenList.innerHTML = '';
+
+        closedWindows.forEach((windowNode) => {
+          const name = windowNode.dataset.name || 'window';
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'reopen-btn';
+          button.textContent = 'reopen ' + name;
+          button.addEventListener('click', () => {
+            windowNode.classList.remove('closed');
+            refreshReopenButtons();
+          });
+          reopenList.appendChild(button);
+        });
+      }
+
+      function activateWindow(windowNode) {
+        if (!windowNode) return;
+        document.querySelectorAll('.window').forEach((el) => {
+          el.classList.remove('is-active');
+        });
+        windowNode.classList.add('is-active');
+      }
+
+      document.querySelectorAll('.window__body').forEach((bodyNode) => {
+        bodyNode.classList.add('has-custom-scrollbar');
+        const scrollbar = document.createElement('div');
+        scrollbar.className = 'window-scrollbar';
+        scrollbar.innerHTML = '<button class="window-scrollbar__button window-scrollbar__button--up" type="button" aria-label="Scroll up"></button><span class="window-scrollbar__thumb"></span><button class="window-scrollbar__button window-scrollbar__button--down" type="button" aria-label="Scroll down"></button>';
+        bodyNode.closest('.window').appendChild(scrollbar);
+
+        const thumb = scrollbar.querySelector('.window-scrollbar__thumb');
+        const upButton = scrollbar.querySelector('.window-scrollbar__button--up');
+        const downButton = scrollbar.querySelector('.window-scrollbar__button--down');
+        let thumbDrag = null;
+
+        function updateScrollbar() {
+          const visibleHeight = bodyNode.clientHeight;
+          const contentHeight = bodyNode.scrollHeight;
+          const trackHeight = scrollbar.clientHeight;
+          const thumbHeight = Math.max(20, trackHeight * visibleHeight / contentHeight);
+          const scrollRange = Math.max(1, contentHeight - visibleHeight);
+          const thumbRange = Math.max(0, trackHeight - thumbHeight);
+          thumb.style.height = thumbHeight + 'px';
+          thumb.style.top = (bodyNode.scrollTop / scrollRange) * thumbRange + 'px';
+          scrollbar.hidden = contentHeight <= visibleHeight;
+        }
+
+        bodyNode.addEventListener('scroll', updateScrollbar);
+        window.addEventListener('resize', updateScrollbar);
+        upButton.addEventListener('click', () => bodyNode.scrollBy({ top: -80, behavior: 'smooth' }));
+        downButton.addEventListener('click', () => bodyNode.scrollBy({ top: 80, behavior: 'smooth' }));
+        thumb.addEventListener('pointerdown', (event) => {
+          event.preventDefault();
+          thumbDrag = { pointerId: event.pointerId, startY: event.clientY, startScroll: bodyNode.scrollTop };
+          thumb.setPointerCapture(event.pointerId);
+        });
+        thumb.addEventListener('pointermove', (event) => {
+          if (!thumbDrag) return;
+          const trackHeight = scrollbar.clientHeight;
+          const thumbHeight = thumb.offsetHeight;
+          const thumbRange = Math.max(1, trackHeight - thumbHeight);
+          const scrollRange = bodyNode.scrollHeight - bodyNode.clientHeight;
+          bodyNode.scrollTop = thumbDrag.startScroll + (event.clientY - thumbDrag.startY) * scrollRange / thumbRange;
+        });
+        thumb.addEventListener('pointerup', () => {
+          thumbDrag = null;
+        });
+        updateScrollbar();
+      });
+
+      document.querySelectorAll('.window').forEach((windowNode) => {
+        windowNode.addEventListener('pointerdown', () => {
+          activateWindow(windowNode);
+        });
+        windowNode.addEventListener('click', () => {
+          activateWindow(windowNode);
+        });
+      });
+
+      document.querySelectorAll('.window__controls button[data-action="close"]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const windowNode = button.closest('.window');
+          if (!windowNode) return;
+          if (windowNode.classList.contains('profile-window')) return;
+          windowNode.classList.add('closed');
+          windowNode.classList.remove('minimized');
+          refreshReopenButtons();
+        });
+      });
+
+      document.querySelectorAll('.window__controls button[data-action="minimize"]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const windowNode = button.closest('.window');
+          if (!windowNode) return;
+          if (windowNode.classList.contains('profile-window')) return;
+
+          if (windowNode.classList.contains('minimized')) {
+            windowNode.classList.remove('minimized');
+            if (windowNode.dataset.restoreWidth) {
+              windowNode.style.width = windowNode.dataset.restoreWidth;
+            }
+            if (windowNode.dataset.restoreHeight) {
+              windowNode.style.height = windowNode.dataset.restoreHeight;
+            }
+            return;
+          }
+
+          windowNode.dataset.restoreWidth = windowNode.style.width || getComputedStyle(windowNode).width;
+          windowNode.dataset.restoreHeight = windowNode.style.height || getComputedStyle(windowNode).height;
+          windowNode.style.setProperty('--minimized-width', windowNode.dataset.restoreWidth);
+          windowNode.style.width = windowNode.dataset.restoreWidth;
+          windowNode.style.height = '38px';
+          windowNode.classList.add('minimized');
+          windowNode.classList.remove('closed');
+        });
+      });
+
+      document.querySelectorAll('.profile-link').forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          const targetId = 'window-' + link.dataset.window;
+          const targetWindow = document.getElementById(targetId);
+          if (!targetWindow) return;
+          targetWindow.classList.remove('closed');
+          targetWindow.classList.remove('minimized');
+          refreshReopenButtons();
+          targetWindow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      });
+
+      let dragState = null;
+
+      function restoreWindow(windowNode) {
+        if (!windowNode) return;
+        windowNode.classList.remove('minimized');
+        if (windowNode.dataset.restoreWidth) {
+          windowNode.style.width = windowNode.dataset.restoreWidth;
+        }
+        if (windowNode.dataset.restoreHeight) {
+          windowNode.style.height = windowNode.dataset.restoreHeight;
+        }
+      }
+
+      function minimizeWindow(windowNode) {
+        if (!windowNode) return;
+        if (windowNode.classList.contains('profile-window')) return;
+        windowNode.dataset.restoreWidth = windowNode.style.width || getComputedStyle(windowNode).width;
+        windowNode.dataset.restoreHeight = windowNode.style.height || getComputedStyle(windowNode).height;
+        windowNode.style.setProperty('--minimized-width', windowNode.dataset.restoreWidth);
+        windowNode.style.width = windowNode.dataset.restoreWidth;
+        windowNode.style.height = '38px';
+        windowNode.classList.add('minimized');
+        windowNode.classList.remove('closed');
+      }
+
+      document.querySelectorAll('.window__header').forEach((header) => {
+        header.addEventListener('pointerdown', (event) => {
+          if (event.target.closest('button')) return;
+
+          const windowNode = header.closest('.window');
+          if (!windowNode || windowNode.classList.contains('closed')) return;
+
+          const wasMinimized = windowNode.classList.contains('minimized');
+
+          const bounds = windowNode.getBoundingClientRect();
+          const desktop = windowNode.parentElement.getBoundingClientRect();
+          dragState = {
+            windowNode,
+            pointerId: event.pointerId,
+            offsetX: event.clientX - bounds.left,
+            offsetY: event.clientY - bounds.top,
+            desktopLeft: desktop.left,
+            desktopTop: desktop.top,
+            startX: event.clientX,
+            startY: event.clientY,
+            moved: false,
+            wasMinimized
+          };
+
+          activateWindow(windowNode);
+
+          header.setPointerCapture(event.pointerId);
+        });
+      });
+
+      document.addEventListener('pointermove', (event) => {
+        if (!dragState) return;
+        const { windowNode, offsetX, offsetY, desktopLeft, desktopTop, startX, startY } = dragState;
+
+        if (Math.abs(event.clientX - startX) > 3 || Math.abs(event.clientY - startY) > 3) {
+          dragState.moved = true;
+        }
+
+        const desktopRect = windowNode.parentElement.getBoundingClientRect();
+        const parentWidth = desktopRect.width;
+        const parentHeight = desktopRect.height;
+        const windowWidth = windowNode.offsetWidth;
+        const windowHeight = windowNode.offsetHeight;
+
+        let nextLeft = event.clientX - desktopLeft - offsetX;
+        let nextTop = event.clientY - desktopTop - offsetY;
+
+        nextLeft = Math.max(0, Math.min(nextLeft, parentWidth - windowWidth));
+        nextTop = Math.max(0, Math.min(nextTop, parentHeight - windowHeight));
+
+        windowNode.style.left = nextLeft + 'px';
+        windowNode.style.top = nextTop + 'px';
+      });
+
+      document.addEventListener('pointerup', () => {
+        if (dragState) {
+          const { windowNode } = dragState;
+          if (windowNode && windowNode.classList.contains('minimized')) {
+            if (!dragState.moved) {
+              restoreWindow(windowNode);
+            }
+            activateWindow(windowNode);
+          } else if (windowNode) {
+            activateWindow(windowNode);
+          }
+        }
+        dragState = null;
+      });
+
+      refreshReopenButtons();
+    </script>
   </body>
 </html>
