@@ -1,0 +1,48 @@
+[
+    {
+        "id": "atelier_001",
+        "title": "TESTLOL",
+        "year": "2025",
+        "description": "quick palette tests and loose composition studies.",
+        "tags": [
+            "study",
+            "palette",
+            "draft",
+            "chicken"
+        ],
+        "image": ""
+    },
+    {
+        "id": "atelier_002",
+        "title": "room notes",
+        "year": "2026",
+        "description": "a soft interior study with layered shadows and texture.",
+        "tags": [
+            "interior",
+            "mood",
+            "texture"
+        ],
+        "image": ""
+    },
+    {
+        "id": "atelier_e80732ae",
+        "title": "CRUD Verification",
+        "year": "2026",
+        "description": "probe for admin crud",
+        "image": "",
+        "tags": [
+            "probe",
+            "crud"
+        ]
+    },
+    {
+        "id": "atelier_b335f4df",
+        "title": "Actual Test",
+        "year": "2026",
+        "description": "",
+        "image": "https://cdn.creazilla.com/emojis/46008/pencil-emoji-clipart-md.png",
+        "tags": [
+            "yes bro"
+        ]
+    }
+]
