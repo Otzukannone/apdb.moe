@@ -40,17 +40,20 @@
   --band-top-dropped: 100%;  
   --menu-top:         34%;   
 
-  /* everything below is sizing/cosmetic, not repositioned by drag */
-  --band-height:   28.4%;
-  --pfp-size:      169%;   
-  --pfp-top:       -35.8%; 
-  --pfp-right:     6.1%;   
+  /* everything below is sizing/cosmetic, not repositioned by drag.
+     --pfp-size is the MASTER unit: the band height is DERIVED from it,
+     so the pfp always stays 1.6x the band and overhangs it — the whole
+     title pad scales as one shape at every viewport size. */
+  --pfp-right:     6.1%;
+  --pfp-size:      min(45.44vh, 30vw);            /* pfp diameter in viewport units */
+  --band-height:   calc(var(--pfp-size) / 1.6);   /* derived — shrinks with the pfp */
+  --notch-gap:     1.5px;  /* band cut edge tucks UNDER the 2px pfp ring: no white halo, border meets the band directly like the old version */
   --title-left:    4.84%;
-  --title-top:     calc(33% - 5px);    
+  --title-center:  38%;              /* title's vertical CENTER, % of band height */
   --title-size:    clamp(15px, 4.2vw, 70px);
-  --ticker-top:    61%;    
-  --ticker-width:  58.7%;
-  --ticker-height: 26.7%;  
+  --ticker-top:    61%;
+  --ticker-width:  48%;
+  --ticker-height: 16%;
   --ticker-size:   clamp(9px, 1.35vw, 22px);
 
   --slot-width:    min(92vw, 620px);
@@ -130,9 +133,25 @@ body.edit-mode{ user-select:none; }
   position:absolute; inset:0;
   background:var(--ink);
 }
+/* curved notch — the band edge follows the pfp circle.
+   same anchor + centering as .pfp, one --notch-gap wider,
+   so the ring around the pfp stays uniform at every scale. */
+#bandGroup .band-bg::after{
+  content:'';
+  position:absolute;
+  right:calc(var(--pfp-right) - var(--notch-gap));
+  top:50%;
+  transform:translateY(-50%);
+  height:calc(var(--pfp-size) + (2 * var(--notch-gap)));
+  aspect-ratio:1/1;
+  border-radius:50%;
+  background:var(--paper);
+}
 #bandGroup h1{
   position:absolute;
-  left:var(--title-left); top:var(--title-top);
+  left:var(--title-left);
+  top:var(--title-center);
+  transform:translateY(-50%);   /* anchors the text by its CENTER, not its top edge */
   margin:0;
   color:#fff;
   font-weight:400;
@@ -163,7 +182,9 @@ body.edit-mode{ user-select:none; }
 }
 #bandGroup .pfp{
   position:absolute;
-  right:var(--pfp-right); top:var(--pfp-top);
+  right:var(--pfp-right);
+  top:50%;
+  transform:translateY(-50%);   /* always dead-centered on the band */
   height:var(--pfp-size);
   aspect-ratio:1/1;
   width:auto;
@@ -325,16 +346,11 @@ body.edit-mode{ user-select:none; }
 /* ---------- mobile / portrait: reflow into a stacked layout ---------- */
 @media (max-width: 680px), (orientation:portrait){
   :root{
-    --band-height:   24vh;
-    --pfp-size:      92%;
-    --pfp-top:       -14%;
-    --pfp-right:     4%;
-    --title-left:    5%;
-    --title-top:     14%;
-    --title-size:    clamp(15px, 6vw, 30px);
-    --ticker-top:    58%;
-    --ticker-width:  62%;
-    --ticker-height: 30%;
+    /* same proportions as desktop — band height still derives from the
+       pfp, so the circle always overhangs the bar. only font clamps and
+       the ticker strip height are retuned for small screens. */
+    --title-size:    clamp(13px, 4.6vw, 22px);
+    --ticker-height: 18%;
     --ticker-size:   clamp(9px, 3vw, 14px);
 
     --menu-top:      6%;
@@ -345,7 +361,10 @@ body.edit-mode{ user-select:none; }
     --dot-radius:    clamp(4px, 1.6vw, 10px);
   }
   #bandGroup, #bandGroup.dropped{
-    bottom:0; top:auto;
+    /* lift the band by the pfp's lower overhang so the circle
+       clears the viewport edge instead of getting clipped */
+    bottom:calc((var(--pfp-size) - var(--band-height)) / 2);
+    top:auto;
   }
 }
 
