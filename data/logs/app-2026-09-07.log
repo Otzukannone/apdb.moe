@@ -1,0 +1,4 @@
+{"time":"2026-09-07T21:14:12+00:00","event":"auth.login_failed","ip":"127.0.0.1","method":"POST","uri":"/admin/index.php","user":"admin"}
+{"time":"2026-09-07T21:14:12+00:00","event":"auth.login","ip":"127.0.0.1","method":"POST","uri":"/admin/index.php"}
+{"time":"2026-09-07T21:14:12+00:00","event":"atelier.create","ip":"127.0.0.1","method":"POST","uri":"/admin/atelier.php","ok":false,"notice":"title is required.","entry_id":null,"files":0}
+{"time":"2026-09-07T21:14:12+00:00","event":"auth.logout","ip":"127.0.0.1","method":"GET","uri":"/admin/logout.php"}

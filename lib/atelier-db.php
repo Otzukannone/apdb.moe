@@ -64,10 +64,14 @@ function atelierDatabase(): PDO
         CREATE INDEX IF NOT EXISTS idx_media_slides_media_order ON media_slides(media_id, slide_order);
     SQL);
 
-    $slideColumns = $database->query('PRAGMA table_info(media_slides)')->fetchAll();
+        $slideColumns = $database->query('PRAGMA table_info(media_slides)')->fetchAll();
     $hasOriginalName = array_filter($slideColumns, static fn ($column) => ($column['name'] ?? '') === 'original_name');
     if ($hasOriginalName === []) {
         $database->exec("ALTER TABLE media_slides ADD COLUMN original_name TEXT NOT NULL DEFAULT ''");
+    }
+    $hasThumbnail = array_filter($slideColumns, static fn ($column) => ($column['name'] ?? '') === 'thumbnail_path');
+    if ($hasThumbnail === []) {
+        $database->exec("ALTER TABLE media_slides ADD COLUMN thumbnail_path TEXT NOT NULL DEFAULT ''");
     }
 
     return $database;
@@ -137,7 +141,7 @@ function atelierEntries(PDO $database): array
 {
     $items = $database->query('SELECT * FROM media_items ORDER BY CAST(year AS INTEGER) DESC, created_at DESC')->fetchAll();
     $tags = $database->query('SELECT media_id, tag FROM media_tags ORDER BY tag')->fetchAll();
-    $slides = $database->query('SELECT media_id, id, slide_order, display_path, original_name, mime_type, media_type FROM media_slides ORDER BY media_id, slide_order')->fetchAll();
+        $slides = $database->query('SELECT media_id, id, slide_order, display_path, original_name, mime_type, media_type, thumbnail_path FROM media_slides ORDER BY media_id, slide_order')->fetchAll();
     $tagsByItem = [];
     $slidesByItem = [];
 
@@ -232,7 +236,109 @@ function atelierUpdateSlideOrder(PDO $database, string $mediaId, array $slideIds
     return count($keptIds);
 }
 
-function atelierStoreUploads(PDO $database, string $mediaId, array $files, int $startOrder = 0): int
+function atelierUpdateSlideNames(PDO $database, string $mediaId, array $slideNames): void
+{
+    $update = $database->prepare('UPDATE media_slides SET original_name = :name WHERE id = :id AND media_id = :media_id');
+    foreach ($slideNames as $slideId => $slideName) {
+        $slideId = (int) $slideId;
+        if ($slideId < 1) {
+            continue;
+        }
+        $slideName = trim(basename((string) $slideName));
+        if ($slideName === '') {
+            continue;
+        }
+        if (mb_strlen($slideName) > 120) {
+            $slideName = mb_substr($slideName, 0, 120);
+        }
+        $update->execute([':name' => $slideName, ':id' => $slideId, ':media_id' => $mediaId]);
+    }
+}
+
+function atelierFindBinary(string $name): ?string
+{
+    static $cache = [];
+    if (array_key_exists($name, $cache)) {
+        return $cache[$name];
+    }
+
+    $candidates = [];
+    $envValue = getenv('APDB_' . strtoupper($name));
+    if (is_string($envValue) && $envValue !== '') {
+        $candidates[] = $envValue;
+    }
+    $candidates[] = $name;
+    if (PHP_OS_FAMILY === 'Windows') {
+        $candidates[] = 'C:\\ytdlp\\' . $name . '.exe';
+        $candidates[] = 'C:\\ffmpeg\\bin\\' . $name . '.exe';
+        $candidates[] = 'C:\\Program Files\\ffmpeg\\bin\\' . $name . '.exe';
+    }
+
+    foreach ($candidates as $candidate) {
+        $output = [];
+        $exitCode = 0;
+        @exec($candidate . ' -version', $output, $exitCode);
+        if ($exitCode === 0 && isset($output[0]) && $output[0] !== '') {
+            $cache[$name] = $candidate;
+            return $candidate;
+        }
+    }
+
+    $cache[$name] = null;
+    return null;
+}
+
+// Extract a single poster frame from a video. Targets a frame roughly
+// 10-20 frames in (~0.5s at common framerates); for very short clips it
+// samples ~1/3 of the way through so it never lands past the end.
+// Returns true on success. Missing ffmpeg / unreadable frames fail closed.
+function atelierVideoThumb(string $videoPath, string $thumbPath): bool
+{
+    $ffmpeg = atelierFindBinary('ffmpeg');
+    if ($ffmpeg === null) {
+        return false;
+    }
+
+    $duration = null;
+    $ffprobe = atelierFindBinary('ffprobe');
+    if ($ffprobe !== null) {
+        $probeOut = [];
+        $probeCode = 0;
+        @exec('"' . $ffprobe . '" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 ' . escapeshellarg($videoPath), $probeOut, $probeCode);
+        if ($probeCode === 0) {
+            foreach ($probeOut as $line) {
+                if (is_numeric($line) && (float) $line > 0) {
+                    $duration = (float) $line;
+                    break;
+                }
+            }
+        }
+    }
+
+    $target = 0.5;
+    if ($duration !== null && $duration > 0) {
+        $target = $duration > 1.0 ? 0.5 : max(0.1, $duration / 3);
+    }
+
+    // primary pass: fast input seek to the target timestamp
+    $output = [];
+    $exitCode = 0;
+    @exec('"' . $ffmpeg . '" -y -ss ' . escapeshellarg((string) $target) . ' -i ' . escapeshellarg($videoPath) . ' -frames:v 1 -q:v 2 -vf scale=240:-1 -update 1 ' . escapeshellarg($thumbPath), $output, $exitCode);
+    if ($exitCode === 0 && is_file($thumbPath) && filesize($thumbPath) > 0) {
+        return true;
+    }
+
+    // fallback pass: first decodable frame
+    @exec('"' . $ffmpeg . '" -y -i ' . escapeshellarg($videoPath) . ' -frames:v 1 -q:v 2 -update 1 ' . escapeshellarg($thumbPath), $output, $exitCode);
+    if ($exitCode === 0 && is_file($thumbPath) && filesize($thumbPath) > 0) {
+        return true;
+    }
+
+    @unlink($thumbPath);
+    return false;
+}
+
+function atelierStoreUploads(PDO $database, string $mediaId, array $files, int $startOrder = 0, array $customNames = []): int
 {
     $allowedTypes = [
         'image/jpeg' => 'image',
@@ -251,14 +357,16 @@ function atelierStoreUploads(PDO $database, string $mediaId, array $files, int $
         throw new RuntimeException('up to 20 media files can be added at once.');
     }
 
-    $uploadDirectory = __DIR__ . '/../media/atelier/' . preg_replace('/[^a-zA-Z0-9_-]/', '', $mediaId);
+        $mediaIdSafe = preg_replace('/[^a-zA-Z0-9_-]/', '', $mediaId);
+    $uploadDirectory = __DIR__ . '/../media/atelier/' . $mediaIdSafe;
     if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0750, true) && !is_dir($uploadDirectory)) {
         throw new RuntimeException('unable to create the media directory.');
     }
 
     $fileInfo = new finfo(FILEINFO_MIME_TYPE);
-    $insert = $database->prepare(
-        'INSERT INTO media_slides (media_id, slide_order, original_path, display_path, original_name, mime_type, media_type, file_size) VALUES (:media_id, :slide_order, :original_path, :display_path, :original_name, :mime_type, :media_type, :file_size)'
+        $insert = $database->prepare(
+        'INSERT INTO media_slides (media_id, slide_order, original_path, display_path, original_name, mime_type, media_type, file_size, thumbnail_path)
+         VALUES (:media_id, :slide_order, :original_path, :display_path, :original_name, :mime_type, :media_type, :file_size, :thumbnail_path)'
     );
     $stored = 0;
     foreach (($files['tmp_name'] ?? []) as $index => $temporaryPath) {
@@ -284,20 +392,37 @@ function atelierStoreUploads(PDO $database, string $mediaId, array $files, int $
         $extension = strtolower(pathinfo((string) ($files['name'][$index] ?? ''), PATHINFO_EXTENSION));
         $filename = bin2hex(random_bytes(16)) . ($extension !== '' ? '.' . preg_replace('/[^a-z0-9]/', '', $extension) : '');
         $destination = $uploadDirectory . '/' . $filename;
+        $customName = trim((string) ($customNames[$index] ?? ''));
+        if ($customName !== '') {
+            $customName = basename($customName);
+        }
+        $displayName = $customName !== '' ? $customName : basename((string) ($files['name'][$index] ?? $filename));
+        if (mb_strlen($displayName) > 120) {
+            $displayName = mb_substr($displayName, 0, 120);
+        }
         if (!move_uploaded_file($temporaryPath, $destination)) {
             throw new RuntimeException('unable to store an uploaded file.');
         }
 
-        $relativePath = '../media/atelier/' . preg_replace('/[^a-zA-Z0-9_-]/', '', $mediaId) . '/' . $filename;
+                $relativePath = '../media/atelier/' . $mediaIdSafe . '/' . $filename;
+        $thumbnailPath = '';
+        if ($mediaType === 'video') {
+            $thumbFilename = pathinfo($filename, PATHINFO_FILENAME) . '_thumb.jpg';
+            $thumbFullPath = $uploadDirectory . '/' . $thumbFilename;
+            if (atelierVideoThumb($destination, $thumbFullPath)) {
+                $thumbnailPath = '../media/atelier/' . $mediaIdSafe . '/' . $thumbFilename;
+            }
+        }
         $insert->execute([
             ':media_id' => $mediaId,
             ':slide_order' => $startOrder + $stored,
             ':original_path' => $relativePath,
             ':display_path' => $relativePath,
-            ':original_name' => basename((string) ($files['name'][$index] ?? $filename)),
+            ':original_name' => $displayName,
             ':mime_type' => $mimeType,
             ':media_type' => $mediaType,
             ':file_size' => filesize($destination),
+            ':thumbnail_path' => $thumbnailPath,
         ]);
         $stored++;
     }

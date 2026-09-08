@@ -1,5 +1,7 @@
 <?php
 session_start();
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 if (!empty($_SESSION['apdb_admin'])) {
     header('Location: ./dashboard.php');
@@ -13,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($user === 'admin' && $pass === 'admin') {
         $_SESSION['apdb_admin'] = true;
+        $_SESSION['apdb_admin_since'] = time();
         header('Location: ./dashboard.php');
         exit;
     }

@@ -1,5 +1,7 @@
 <?php
 session_start();
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 require_once __DIR__ . '/../lib/atelier-db.php';
 $database = atelierDatabase();
@@ -118,6 +120,23 @@ $entries = atelierEntries($database);
 
       .post-card.placeholder {
         background: linear-gradient(135deg, rgba(12,14,29,0.06), rgba(12,14,29,0.03));
+      }
+
+      .post-card.video-card .post-card__video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        pointer-events: none;
+      }
+
+      .post-card.video-card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(13,19,35,0) 0%, rgba(13,19,35,0.2) 100%);
+        pointer-events: none;
       }
 
       .post-card__label {
@@ -458,14 +477,17 @@ $entries = atelierEntries($database);
               $previewSlide = $slides[0] ?? [];
               $previewImage = trim((string) ($previewSlide['display_path'] ?? $image));
               $previewType = (string) ($previewSlide['media_type'] ?? 'image');
+              $previewThumb = trim((string) ($previewSlide['thumbnail_path'] ?? ''));
+              $cardCover = ($previewType === 'image') ? $previewImage : (($previewType === 'video' && $previewThumb !== '') ? $previewThumb : '');
               $tags = (array) ($entry['tags'] ?? []);
               $tagCsv = implode(',', array_map(static fn ($tag) => trim((string) $tag), $tags));
               $entryId = htmlspecialchars((string) ($entry['id'] ?? ''), ENT_QUOTES, 'UTF-8');
               $slideData = htmlspecialchars(json_encode($slides, JSON_UNESCAPED_SLASHES) ?: '[]', ENT_QUOTES, 'UTF-8');
+              $cardClass = $cardCover !== '' ? 'photo-card' : (($previewImage !== '' && $previewType === 'video') ? 'video-card' : 'placeholder');
             ?>
             <div
-              class="post-card <?= $previewImage !== '' && $previewType === 'image' ? 'photo-card' : 'placeholder' ?>"
-              style="<?= $previewImage !== '' && $previewType === 'image' ? 'background-image: url(' . htmlspecialchars($previewImage, ENT_QUOTES, 'UTF-8') . ');' : '' ?>"
+              class="post-card <?= $cardClass ?>"
+              style="<?= $cardCover !== '' ? 'background-image: url(' . htmlspecialchars($cardCover, ENT_QUOTES, 'UTF-8') . ');' : '' ?>"
               data-id="<?= $entryId ?>"
               data-title="<?= $title ?>"
               data-year="<?= $year ?>"
@@ -486,6 +508,9 @@ $entries = atelierEntries($database);
                     <button type="submit" aria-label="Delete <?= $title ?>" title="Delete">🗑</button>
                   </form>
                 </span>
+              <?php endif; ?>
+              <?php if ($previewType === 'video' && $cardCover === '' && $previewImage !== ''): ?>
+                <video class="post-card__video" muted preload="metadata" src="<?= htmlspecialchars($previewImage, ENT_QUOTES, 'UTF-8') ?>"></video>
               <?php endif; ?>
               <span class="post-card__label"><?= $title ?></span>
             </div>
@@ -702,7 +727,10 @@ $entries = atelierEntries($database);
           if (slide.media_type === 'video') {
             const video = document.createElement('video');
             video.controls = true;
-            video.preload = 'metadata';
+                        video.preload = 'metadata';
+            if (slide.thumbnail_path) {
+              video.poster = slide.thumbnail_path;
+            }
             const source = document.createElement('source');
             source.src = slide.display_path;
             source.type = slide.mime_type || 'video/mp4';
