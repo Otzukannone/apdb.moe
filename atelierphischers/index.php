@@ -131,14 +131,6 @@ $entries = atelierEntries($database);
         pointer-events: none;
       }
 
-      .post-card.video-card::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(180deg, rgba(13,19,35,0) 0%, rgba(13,19,35,0.2) 100%);
-        pointer-events: none;
-      }
-
       .post-card__label {
         position: absolute;
         left: 12px;
@@ -146,20 +138,37 @@ $entries = atelierEntries($database);
         font-size: 0.72rem;
         letter-spacing: 0.08em;
         text-transform: lowercase;
-        color: rgba(13, 19, 35, 0.7);
-        z-index: 2;
-      }
-
-      .post-card.photo-card .post-card__label {
         color: #f8f9fb;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        z-index: 2;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(7px);
+        transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
+        pointer-events: none;
       }
 
-      .post-card.photo-card::after {
+      .post-card:hover .post-card__label,
+      .post-card:focus .post-card__label,
+      .post-card:focus-within .post-card__label {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+      }
+
+      .post-card::after {
         content: "";
         position: absolute;
         inset: 0;
-        background: linear-gradient(180deg, rgba(12, 14, 29, 0), rgba(12, 14, 29, 0.5));
+        background: linear-gradient(180deg, rgba(12, 14, 29, 0) 55%, rgba(12, 14, 29, 0.14) 74%, rgba(12, 14, 29, 0.55) 100%);
+        transition: background 180ms ease;
+        pointer-events: none;
+      }
+
+      .post-card:hover::after,
+      .post-card:focus::after,
+      .post-card:focus-within::after {
+        background: linear-gradient(180deg, rgba(12, 14, 29, 0) 50%, rgba(12, 14, 29, 0.2) 72%, rgba(12, 14, 29, 0.66) 100%);
       }
 
       .post-card .card-admin-actions {
