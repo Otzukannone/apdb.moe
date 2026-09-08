@@ -138,7 +138,7 @@ $entries = atelierEntries($database);
         font-size: 0.72rem;
         letter-spacing: 0.08em;
         text-transform: lowercase;
-        color: #f8f9fb;
+        color: #f8f9fb !important;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
         z-index: 2;
         opacity: 0;
