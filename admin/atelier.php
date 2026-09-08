@@ -504,6 +504,7 @@ $today = date('Y');
 
       .entry {
         position: relative;
+        min-width: 0;
         min-height: 150px;
         border: 1px solid rgba(12,14,29,0.12);
         border-radius: 14px;
@@ -514,6 +515,7 @@ $today = date('Y');
       .entry-copy {
         min-width: 0;
         padding-right: 118px;
+        overflow-wrap: anywhere;
       }
 
       .entry-thumbnail {
