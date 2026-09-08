@@ -3,6 +3,24 @@ session_start();
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
+// Portable polyfills so this page survives shared hosts that lack
+// mbstring or run older PHP (these only define if missing).
+if (!function_exists('mb_strlen')) {
+    function mb_strlen($str, $encoding = null): int
+    {
+        return strlen((string) $str);
+    }
+}
+if (!function_exists('mb_substr')) {
+    function mb_substr($str, $start, $length = null, $encoding = null): string
+    {
+        return $length === null ? substr((string) $str, (int) $start) : substr((string) $str, (int) $start, (int) $length);
+    }
+}
+if (!defined('PHP_OS_FAMILY')) {
+    define('PHP_OS_FAMILY', stripos(PHP_OS, 'WIN') === 0 ? 'Windows' : (stripos(PHP_OS, 'DARWIN') !== false ? 'Darwin' : 'Linux'));
+}
+
 if (empty($_SESSION['apdb_admin'])) {
     header('Location: ./index.php');
     exit;
@@ -12,7 +30,7 @@ if (empty($_SESSION['apdb_admin'])) {
  * Best-effort server (OS) uptime in seconds.
  * Returns null when the host does not expose it.
  */
-function dashboardServerUptime(): ?int
+function dashboardServerUptime()
 {
     // linux & most unix: the kernel exposes uptime here
     if (@is_readable('/proc/uptime')) {

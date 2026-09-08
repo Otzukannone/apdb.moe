@@ -1,6 +1,24 @@
 <?php
 declare(strict_types=1);
 
+// Portable polyfills so these pages survive shared hosts that lack
+// mbstring or run older PHP (only define if missing).
+if (!function_exists('mb_strlen')) {
+    function mb_strlen($str, $encoding = null): int
+    {
+        return strlen((string) $str);
+    }
+}
+if (!function_exists('mb_substr')) {
+    function mb_substr($str, $start, $length = null, $encoding = null): string
+    {
+        return $length === null ? substr((string) $str, (int) $start) : substr((string) $str, (int) $start, (int) $length);
+    }
+}
+if (!defined('PHP_OS_FAMILY')) {
+    define('PHP_OS_FAMILY', stripos(PHP_OS, 'WIN') === 0 ? 'Windows' : (stripos(PHP_OS, 'DARWIN') !== false ? 'Darwin' : 'Linux'));
+}
+
 function atelierDatabase(): PDO
 {
     static $database;
@@ -65,11 +83,11 @@ function atelierDatabase(): PDO
     SQL);
 
         $slideColumns = $database->query('PRAGMA table_info(media_slides)')->fetchAll();
-    $hasOriginalName = array_filter($slideColumns, static fn ($column) => ($column['name'] ?? '') === 'original_name');
+    $hasOriginalName = array_filter($slideColumns, static function ($column) { return ($column['name'] ?? '') === 'original_name'; });
     if ($hasOriginalName === []) {
         $database->exec("ALTER TABLE media_slides ADD COLUMN original_name TEXT NOT NULL DEFAULT ''");
     }
-    $hasThumbnail = array_filter($slideColumns, static fn ($column) => ($column['name'] ?? '') === 'thumbnail_path');
+    $hasThumbnail = array_filter($slideColumns, static function ($column) { return ($column['name'] ?? '') === 'thumbnail_path'; });
     if ($hasThumbnail === []) {
         $database->exec("ALTER TABLE media_slides ADD COLUMN thumbnail_path TEXT NOT NULL DEFAULT ''");
     }

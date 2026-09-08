@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($action === 'create') {
                 $_SESSION['atelier_form_token_used'] = true;
             }
-            $tagList = array_values(array_filter(array_map('trim', preg_split('/[,\n]+/', $tags) ?: []), static fn ($tag) => $tag !== ''));
+            $tagList = array_values(array_filter(array_map('trim', preg_split('/[,\n]+/', $tags) ?: []), static function ($tag) { return $tag !== ''; }));
 
             $entryId = $action === 'save' && $id !== '' ? $id : 'atelier_' . substr(md5((string) microtime(true) . $title), 0, 8);
             $uploadNotice = '';
@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               'image' => $image,
               'tags' => $tagList,
             ]);
-            $hasUploadedFiles = array_filter((array) ($uploadedFiles['name'] ?? []), static fn ($name) => trim((string) $name) !== '');
+            $hasUploadedFiles = array_filter((array) ($uploadedFiles['name'] ?? []), static function ($name) { return trim((string) $name) !== ''; });
             if ($hasUploadedFiles !== []) {
               try {
                 $keptSlides = array_map('intval', (array) ($_POST['keep_slides'] ?? []));
@@ -720,7 +720,7 @@ $today = date('Y');
 
             <div class="upload-label">
               <span>upload media</span>
-              <?php if ($editEntry && array_filter((array) ($editEntry['slides'] ?? []), static fn ($slide) => (int) ($slide['id'] ?? 0) > 0) !== []): ?>
+              <?php if ($editEntry && array_filter((array) ($editEntry['slides'] ?? []), static function ($slide) { return (int) ($slide['id'] ?? 0) > 0; }) !== []): ?>
                 <p class="existing-media-title">current media: drag to reorder or remove</p>
                 <ol class="upload-list" id="existingMediaList">
                   <?php foreach ((array) $editEntry['slides'] as $slide): ?>
