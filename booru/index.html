@@ -7,31 +7,39 @@
     <link rel="icon" type="image/png" href="../assets/yuyuk.png" />
     <link rel="stylesheet" href="../shared.css" />
   </head>
-  <body>
+  <body class="wip-page">
+    <video id="wipBg" autoplay loop muted playsinline preload="auto"></video>
+    <div class="wip-shade" aria-hidden="true"></div>
+
     <div class="site-shell">
       <header class="topbar">
-        <div class="brand">booru.apdb.moe</div>
+        <a class="brand" href="/">apdb.moe</a>
         <nav class="nav" aria-label="Main navigation">
-          <a href="/">home</a>
           <a href="../what/">what</a>
-          <a href="./">booru</a>
           <a href="../atelierphischers/">atelierphischers</a>
           <a href="../blog/">blog</a>
         </nav>
       </header>
 
-      <main class="hero">
-        <div class="kicker">booru</div>
-        <h1>booru.</h1>
-        <div class="card">
-          <span class="meta">status: placeholder</span>
+      <main class="wip-stage">
+        <div class="wip-message">
+          <h1>booru (?)</h1>
           <p>
-            This is <strong>booru.apdb.moe</strong>. Planned to be a booru-style image board for my personal database of shiz i saved since 2018.
+            Like idk one of the first ideas of this was to be a booru-grid style image board for my personal database of shiz i saved since 2018.
+          </p>
+          <p>
+            It was planned to be one of the first thing i needed to get done, but seeing how much work just getting the atelierphischers page done takes, i decided to put this on hold for now. maybe one day i'll get around to it.
           </p>
         </div>
       </main>
 
-      <footer>apdb.moe</footer>
+      <footer class="site-footer">
+        <div class="site-footer__inner">
+          <span><a href="../admin/">apdb.moe</a></span>
+        </div>
+      </footer>
     </div>
+
+    <script src="../wip.js"></script>
   </body>
 </html>

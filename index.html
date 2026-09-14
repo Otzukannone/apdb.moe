@@ -31,7 +31,7 @@
         <div class="status" id="statusLine">&nbsp;</div>
       </div>
     </div>
-    <div id="menuHint">↑ / ↓ to move · enter to select</div>
+    <div id="wipAudioOption" class="wip-audio-option" tabindex="0" role="button">enable audio?</div>
   </div>
 </section>
 
@@ -39,7 +39,7 @@
 
 <footer class="site-footer">
   <div class="site-footer__inner">
-    <span>© 2026 <a href="./admin/" aria-label="admin login">apdb.moe</a></span>
+    <span><a href="./admin/" aria-label="admin login">apdb.moe</a></span>
   </div>
 </footer>
 
@@ -49,13 +49,16 @@
   const bandGroup = document.getElementById('bandGroup');
   const cardSlot = document.getElementById('cardSlot');
   const menuBox = document.getElementById('menuBox');
-  const menuHint = document.getElementById('menuHint');
+  const wipAudioOption = document.getElementById('wipAudioOption');
 
   function toFinalState(){
     bandGroup.classList.add('dropped');
     cardSlot.classList.add('show');
     menuBox.classList.add('show');
-    menuHint.classList.add('show');
+    if (!audioEnabled()) {
+      // the pill only shows when sound still needs to be activated
+      wipAudioOption.classList.add('show');
+    }
     initMenu();
   }
 
@@ -90,6 +93,7 @@
       menuBound = true;
       window.addEventListener('keydown', (event) => {
         if (!menuBox.classList.contains('show')) return;
+        if (event.target.closest && event.target.closest('#wipAudioOption')) return;
         if (event.key === 'ArrowDown') {
           idx = (idx + 1) % rows.length;
           render();
@@ -105,6 +109,29 @@
       });
     }
   }
+
+  // ---- wip music opt-in (one click, per session) ----------------------
+  const AUDIO_PREF = 'apdb_wip_audio';
+
+  function audioEnabled(){
+    try { return sessionStorage.getItem(AUDIO_PREF) === '1'; } catch (error) { return false; }
+  }
+
+  function handleAudioOption(){
+    if (audioEnabled()) { return; }
+    try { sessionStorage.setItem(AUDIO_PREF, '1'); } catch (error) {}
+    window.setTimeout(() => {
+      wipAudioOption.classList.remove('show');
+    }, 400);
+  }
+
+  wipAudioOption.addEventListener('click', handleAudioOption);
+  wipAudioOption.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      handleAudioOption();
+      event.preventDefault();
+    }
+  });
 
   window.setTimeout(toFinalState, 2200);
 })();

@@ -90,8 +90,40 @@
       }
 
       .brand {
-        margin-left: 1.5rem;
+        position: relative;
+        z-index: 0;
+        display: inline-block;
+        width: fit-content;
+        margin-left: 2rem;
         font-size: clamp(1.8rem, 3vw, 3rem);
+        letter-spacing: 0em;
+        color: #fff;
+        text-decoration: none;
+        -webkit-text-stroke: 4px rgba(255, 88, 81, 0.98);
+        paint-order: stroke fill;
+      }
+
+      /* selecting the brand highlights it as a solid block behind the
+         text (like picking a shape), not a glyph-by-glyph selection */
+      .brand::selection {
+        background: #b4b9ff;
+        color: #fff;
+      }
+
+      /* hard drop shadow as a layer BEHIND the text (text-shadow paints
+         above the stroke in some engines, so fake it with a copy).
+         Fill is transparent so letter counters (a, p, d, b) stay open. */
+      .brand::after {
+        content: "apdb.moe";
+        position: absolute;
+        z-index: -1;
+        inset: 0;
+        color: transparent;
+        -webkit-text-stroke: 4px #b4b9ff;
+        transform: translate(5px, 5px);
+        pointer-events: none;
+        -webkit-user-select: none;
+        user-select: none;
       }
 
       .desktop {
@@ -478,6 +510,21 @@
         min-width: 390px;
       }
 
+      /* guestbook window: the atabook iframe fills the whole body */
+      .guestbook-body {
+        padding: 0;
+        height: calc(100% - 42px);
+        max-height: calc(100% - 42px);
+        overflow: hidden;
+      }
+
+      .guestbook-frame {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
+
       .contact-list li {
         white-space: nowrap;
         font-size: 0.94rem;
@@ -540,10 +587,8 @@
   <body>
     <div class="site-shell">
       <header class="topbar">
-        <div class="brand">what</div>
+        <a class="brand" href="/">apdb.moe</a>
         <nav class="nav" aria-label="Main navigation">
-          <a href="/">home</a>
-          <a href="./">what</a>
           <a href="../booru/">booru</a>
           <a href="../atelierphischers/">atelierphischers</a>
           <a href="../blog/">blog</a>
@@ -569,21 +614,26 @@
               </div>
             </div>
             <p class="profile-note">
-              I make personal projects, visual experiments, and small web things with a heavy focus on atmosphere, identity, and weird little systems.
+              I like to think that i am two seperate persons, one of which called Albert Pirelius. Im guessing you already know what DB stands for.
+              Its been my go to pseudonym for usernames on the internet, (albertp) for a lot of things *hit me up if you seen me else where dawg
+              That's it lol cant think of anything else atm 
+            </p>
+            <p class="profile-note">
+              Open windows:
             </p>
             <ul class="profile-links" aria-label="Open sections">
-              <li><a href="#" class="profile-link" data-window="about">about me</a></li>
+              <li><a href="#" class="profile-link" data-window="about">about</a></li>
               <li><a href="#" class="profile-link" data-window="contact">links</a></li>
               <li><a href="#" class="profile-link" data-window="skills">what i do</a></li>
-              <li><a href="#" class="profile-link" data-window="education">what i like</a></li>
-              <li><a href="#" class="profile-link" data-window="experience">events</a></li>
+              <li><a href="#" class="profile-link" data-window="events">events</a></li>
+              <li><a href="#" class="profile-link" data-window="guestbook">guestbook</a></li>
             </ul>
           </div>
         </section>
 
         <section class="window window--pink" id="window-about" data-name="about" style="left: 485px; top: 18px; width: 480px; height: 280px;">
           <div class="window__header">
-            <div class="window__title">about me</div>
+            <div class="window__title">about</div>
             <div class="window__controls" aria-label="window actions">
               <button type="button" aria-label="minimize about window" data-action="minimize"></button>
               <button type="button" aria-label="close about window" data-action="close"></button>
@@ -591,34 +641,30 @@
           </div>
           <div class="window__body">
             <p class="window-copy">
-              Observations and Research Page 🔭
-              Bottom Feed Operations Command 📂
-              Monochromatic Thinking ♟️
-              Trespassers will be shot 💥
-              - pageapdfsds 2026
+              I don't really know what my site is going to turn into, but I want it to be a place where I can share my work and ideas, and also a place where I can experiment with new things.
             </p>
             <p class="window-copy">
-              This page is a living archive of projects, experiments, references, and personal notes.
+              The current state of this page is to be an archive of projects, experiments, references, and personal blog (still WIP).
             </p>
           </div>
         </section>
 
-        <section class="window window--green" id="window-education" data-name="education" style="left: 1018px; top: 18px; width: 420px; height: 360px;">
+        <section class="window window--green" id="window-events" data-name="events" style="left: 1018px; top: 18px; width: 420px; height: 360px;">
           <div class="window__header">
-            <div class="window__title">what i like</div>
+            <div class="window__title">events</div>
             <div class="window__controls" aria-label="window actions">
-              <button type="button" aria-label="minimize education window" data-action="minimize"></button>
-              <button type="button" aria-label="close education window" data-action="close"></button>
+              <button type="button" aria-label="minimize events window" data-action="minimize"></button>
+              <button type="button" aria-label="close events window" data-action="close"></button>
             </div>
           </div>
           <div class="window__body info-block">
             <div>
-              <h3>2014–16</h3>
-              <p class="window-copy">Dolor minim sit amet consectetur adipiscing labore elit sed adipiscing sed.</p>
+              <h3>09-14-2026</h3>
+              <p class="window-copy">Knee deep into the work, i checked on some sites on nekoweb. I wanna change the art direction already :P</p>
             </div>
             <div>
-              <h3>2017–19</h3>
-              <p class="window-copy">Dolor minim sit amet consectetur adipiscing labore elit sed adipiscing sed.</p>
+              <h3>08-30-2026</h3>
+              <p class="window-copy">Site begins to take shape, the polka dot pattern has been a running theme i plan months before.</p>
             </div>
           </div>
         </section>
@@ -659,27 +705,16 @@
           </div>
         </section>
 
-        <section class="window window--red" id="window-experience" data-name="experience" style="left: 1018px; top: 420px; width: 420px; height: 380px;">
+        <section class="window window--red" id="window-guestbook" data-name="guestbook" style="left: 1018px; top: 420px; width: 420px; height: 380px;">
           <div class="window__header">
-            <div class="window__title">events</div>
+            <div class="window__title">guestbook</div>
             <div class="window__controls" aria-label="window actions">
-              <button type="button" aria-label="minimize experience window" data-action="minimize"></button>
-              <button type="button" aria-label="close experience window" data-action="close"></button>
+              <button type="button" aria-label="minimize guestbook window" data-action="minimize"></button>
+              <button type="button" aria-label="close guestbook window" data-action="close"></button>
             </div>
           </div>
-          <div class="window__body info-block">
-            <div>
-              <h3>YY-MM-DD</h3>
-              <p class="window-copy">blank</p>
-            </div>
-            <div>
-              <h3>YY-MM-DD</h3>
-              <p class="window-copy">blank</p>
-            </div>
-            <div>
-              <h3>YY-MM-DD</h3>
-              <p class="window-copy">blank</p>
-            </div>
+          <div class="window__body guestbook-body">
+            <iframe class="guestbook-frame" src="https://apdb.atabook.org/" title="apdb's guestbook" loading="lazy"></iframe>
           </div>
         </section>
       </main>

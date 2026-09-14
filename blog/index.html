@@ -7,30 +7,35 @@
     <link rel="icon" type="image/png" href="../assets/yuyuk.png" />
     <link rel="stylesheet" href="../shared.css" />
   </head>
-  <body>
+  <body class="wip-page">
+    <video id="wipBg" autoplay loop muted playsinline preload="auto"></video>
+    <div class="wip-shade" aria-hidden="true"></div>
+
     <div class="site-shell">
       <header class="topbar">
-        <div class="brand">blog</div>
+        <a class="brand" href="/">apdb.moe</a>
         <nav class="nav" aria-label="Main navigation">
-          <a href="/">home</a>
           <a href="../what/">what</a>
           <a href="../booru/">booru</a>
           <a href="../atelierphischers/">atelierphischers</a>
-          <a href="./">blog</a>
         </nav>
       </header>
 
-      <main class="hero">
-        <div class="kicker">blog</div>
-        <h1>blog.</h1>
-        <div class="card">
-          <span class="meta">blank</span>
-          <p>
-            Planning to make a blog here, but for now this is just a placeholder.
+      <main class="wip-stage">
+        <div class="wip-message">
+          <div class="kicker">who cares about RSS feeds?</div>
+          <h1>blog.</h1>
+          <p>been thinking of implmeneting RSS feed, but who cares about it anyway really?</p>
         </div>
       </main>
 
-      <footer>apdb.moe / blog</footer>
+      <footer class="site-footer">
+        <div class="site-footer__inner">
+          <span><a href="../admin/">apdb.moe</a></span>
+        </div>
+      </footer>
     </div>
+
+    <script src="../wip.js"></script>
   </body>
 </html>
