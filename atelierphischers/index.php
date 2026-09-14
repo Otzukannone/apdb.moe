@@ -363,6 +363,32 @@ $entries = atelierEntries($database);
         text-transform: lowercase;
       }
 
+      .media-modal__download {
+        display: inline-flex;
+        align-self: flex-start;
+        border: 1px solid rgba(13, 19, 35, 0.2);
+        border-radius: 999px;
+        padding: 8px 14px;
+        background: rgba(255, 255, 255, 0.5);
+        color: var(--ink);
+        font: inherit;
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-transform: lowercase;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 140ms ease;
+      }
+
+      .media-modal__download:hover {
+        background: var(--ink);
+        color: #fff;
+      }
+
+      .media-modal__download[hidden] {
+        display: none;
+      }
+
       .media-modal__close {
         position: absolute;
         top: 12px;
@@ -484,7 +510,10 @@ $entries = atelierEntries($database);
               $image = trim((string) ($entry['image'] ?? ''));
               $slides = (array) ($entry['slides'] ?? []);
               $previewSlide = $slides[0] ?? [];
-              $previewImage = trim((string) ($previewSlide['display_path'] ?? $image));
+              $previewDisplay = trim((string) ($previewSlide['display_path'] ?? $image));
+              $previewStream = trim((string) ($previewSlide['stream_path'] ?? ''));
+              // streaming views use the optimized webp/webm copy when one exists
+              $previewImage = $previewStream !== '' ? $previewStream : $previewDisplay;
               $previewType = (string) ($previewSlide['media_type'] ?? 'image');
               $previewThumb = trim((string) ($previewSlide['thumbnail_path'] ?? ''));
               $cardCover = ($previewType === 'image') ? $previewImage : (($previewType === 'video' && $previewThumb !== '') ? $previewThumb : '');
@@ -501,7 +530,7 @@ $entries = atelierEntries($database);
               data-title="<?= $title ?>"
               data-year="<?= $year ?>"
               data-description="<?= $description !== '' ? $description : 'no notes yet.' ?>"
-              data-image="<?= htmlspecialchars($previewImage, ENT_QUOTES, 'UTF-8') ?>"
+              data-image="<?= htmlspecialchars($previewDisplay, ENT_QUOTES, 'UTF-8') ?>"
               data-slides="<?= $slideData ?>"
               data-tags="<?= htmlspecialchars($tagCsv, ENT_QUOTES, 'UTF-8') ?>"
               aria-label="Open <?= $title ?>"
@@ -593,6 +622,7 @@ $entries = atelierEntries($database);
           <h2 id="mediaTitle">title</h2>
           <p id="mediaDescription">description</p>
           <div class="media-modal__tags" id="modalTags"></div>
+          <a class="media-modal__download" id="modalDownload" href="#" download hidden>download original</a>
         </div>
       </div>
     </div>
@@ -620,6 +650,7 @@ $entries = atelierEntries($database);
       const editorIdField = document.getElementById('editorId');
       const editorCloseButton = document.getElementById('editorCloseButton');
       const mediaCloseButton = document.getElementById('mediaCloseButton');
+      const modalDownload = document.getElementById('modalDownload');
       const closeTriggers = document.querySelectorAll('[data-close="true"]');
 
       let currentMode = 'grid';
@@ -733,22 +764,38 @@ $entries = atelierEntries($database);
         modalImage.style.backgroundColor = '#11131a';
 
         if (slide) {
+          const streamPath = slide.stream_path || '';
           if (slide.media_type === 'video') {
             const video = document.createElement('video');
             video.controls = true;
-                        video.preload = 'metadata';
+            video.preload = 'metadata';
             if (slide.thumbnail_path) {
               video.poster = slide.thumbnail_path;
             }
             const source = document.createElement('source');
-            source.src = slide.display_path;
-            source.type = slide.mime_type || 'video/mp4';
+            source.src = streamPath || slide.display_path;
+            source.type = streamPath ? 'video/webm' : (slide.mime_type || 'video/mp4');
             video.appendChild(source);
             modalImage.appendChild(video);
-          } else if (slide.display_path) {
-            modalImage.style.backgroundImage = 'url("' + slide.display_path.replace(/"/g, '%22') + '")';
+          } else if (slide.display_path || streamPath) {
+            const shown = (streamPath || slide.display_path).replace(/"/g, '%22');
+            modalImage.style.backgroundImage = 'url("' + shown + '")';
             modalImage.style.backgroundColor = '#dfe4ea';
           }
+        }
+
+        // downloads always use the original file the author uploaded
+        const originalPath = slide ? (slide.original_path || slide.display_path || '') : '';
+        if (originalPath !== '') {
+          modalDownload.href = originalPath;
+          if (slide.original_name) {
+            modalDownload.setAttribute('download', slide.original_name);
+          } else {
+            modalDownload.removeAttribute('download');
+          }
+          modalDownload.hidden = false;
+        } else {
+          modalDownload.hidden = true;
         }
 
         const hasSlides = currentSlides.length > 1;

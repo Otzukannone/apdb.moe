@@ -72,6 +72,7 @@ function atelierDatabase(): PDO
             mime_type TEXT NOT NULL,
             media_type TEXT NOT NULL CHECK (media_type IN ('image', 'video')),
             file_size INTEGER NOT NULL DEFAULT 0,
+            stream_path TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE (media_id, slide_order),
             FOREIGN KEY (media_id) REFERENCES media_items(id) ON DELETE CASCADE
@@ -90,6 +91,10 @@ function atelierDatabase(): PDO
     $hasThumbnail = array_filter($slideColumns, static function ($column) { return ($column['name'] ?? '') === 'thumbnail_path'; });
     if ($hasThumbnail === []) {
         $database->exec("ALTER TABLE media_slides ADD COLUMN thumbnail_path TEXT NOT NULL DEFAULT ''");
+    }
+    $hasStream = array_filter($slideColumns, static function ($column) { return ($column['name'] ?? '') === 'stream_path'; });
+    if ($hasStream === []) {
+        $database->exec("ALTER TABLE media_slides ADD COLUMN stream_path TEXT NOT NULL DEFAULT ''");
     }
 
     return $database;
@@ -159,7 +164,7 @@ function atelierEntries(PDO $database): array
 {
     $items = $database->query('SELECT * FROM media_items ORDER BY CAST(year AS INTEGER) DESC, created_at DESC')->fetchAll();
     $tags = $database->query('SELECT media_id, tag FROM media_tags ORDER BY tag')->fetchAll();
-        $slides = $database->query('SELECT media_id, id, slide_order, display_path, original_name, mime_type, media_type, thumbnail_path FROM media_slides ORDER BY media_id, slide_order')->fetchAll();
+        $slides = $database->query('SELECT media_id, id, slide_order, display_path, original_path, stream_path, original_name, mime_type, media_type, file_size, thumbnail_path FROM media_slides ORDER BY media_id, slide_order')->fetchAll();
     $tagsByItem = [];
     $slidesByItem = [];
 
@@ -177,9 +182,12 @@ function atelierEntries(PDO $database): array
         $item['slides'] = $slidesByItem[$item['id']] ?? ($item['image'] !== '' ? [[
             'slide_order' => 0,
             'display_path' => $item['image'],
+            'original_path' => $item['image'],
+            'stream_path' => '',
             'original_name' => basename(parse_url($item['image'], PHP_URL_PATH) ?: $item['image']),
             'mime_type' => $item['mime_type'] ?: 'image/*',
             'media_type' => $item['media_type'] ?: 'image',
+            'file_size' => (int) ($item['file_size'] ?? 0),
         ]] : []);
     }
     unset($item);
@@ -356,8 +364,195 @@ function atelierVideoThumb(string $videoPath, string $thumbPath): bool
     return false;
 }
 
+// ---------------------------------------------------------------------------
+// Streaming-optimized copies
+//
+// Uploads keep their original file untouched (that is what visitors
+// download); the gallery only ever streams a generated copy:
+//   images -> <name>_stream.webp  (recompressed, capped at 2000px)
+//   videos -> <name>_stream.webm  (VP9 + Opus, capped at 1280px)
+// When no smaller copy can be produced the functions return '' and the
+// site falls back to serving the original, so everything keeps working
+// on hosts without GD or ffmpeg.
+// ---------------------------------------------------------------------------
+
+function atelierScaleFilter(int $width, int $height, int $maxDimension): string
+{
+    if ($width <= 0 || $height <= 0 || max($width, $height) <= $maxDimension) {
+        return '';
+    }
+    return $width >= $height ? 'scale=' . $maxDimension . ':-2' : 'scale=-2:' . $maxDimension;
+}
+
+function atelierProbeVideoSize(string $videoPath): array
+{
+    $ffprobe = atelierFindBinary('ffprobe');
+    if ($ffprobe === null) {
+        return [0, 0];
+    }
+
+    $output = [];
+    $exitCode = 0;
+    @exec('"' . $ffprobe . '" -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 ' . escapeshellarg($videoPath), $output, $exitCode);
+    if ($exitCode === 0 && isset($output[0]) && preg_match('/(\d+)x(\d+)/', (string) $output[0], $matches) === 1) {
+        return [(int) $matches[1], (int) $matches[2]];
+    }
+
+    return [0, 0];
+}
+
+// Recompress an image to webp with GD (no shell needed). Returns true when
+// the webp file was written.
+function atelierRescaleImageGd(string $sourcePath, string $streamPath, int $maxDimension): bool
+{
+    $size = @getimagesize($sourcePath);
+    if ($size === false || !function_exists('imagewebp')) {
+        return false;
+    }
+
+    $loaders = [
+        'image/jpeg' => 'imagecreatefromjpeg',
+        'image/png' => 'imagecreatefrompng',
+        'image/webp' => 'imagecreatefromwebp',
+        'image/avif' => 'imagecreatefromavif',
+    ];
+    $loader = $loaders[(string) ($size['mime'] ?? '')] ?? null;
+    if ($loader === null || !function_exists($loader)) {
+        return false;
+    }
+
+    $image = @$loader($sourcePath);
+    if ($image === false) {
+        return false;
+    }
+
+    $ok = false;
+    if (imagepalettetotruecolor($image)) {
+        [$width, $height] = $size;
+        if (max((int) $width, (int) $height) > $maxDimension) {
+            $scaled = (int) $width >= (int) $height
+                ? imagescale($image, $maxDimension, -1)
+                : imagescale($image, -1, $maxDimension);
+            if ($scaled !== false) {
+                imagedestroy($image);
+                $image = $scaled;
+            }
+        }
+        $ok = imagewebp($image, $streamPath, 82);
+    }
+    imagedestroy($image);
+
+    return (bool) $ok;
+}
+
+// Fallback image recompression through ffmpeg (used when GD is missing or
+// cannot read the format, e.g. avif on older PHP builds).
+function atelierRescaleImageFfmpeg(string $sourcePath, string $streamPath, int $width, int $height, int $maxDimension): bool
+{
+    $ffmpeg = atelierFindBinary('ffmpeg');
+    if ($ffmpeg === null) {
+        return false;
+    }
+
+    $filter = atelierScaleFilter($width, $height, $maxDimension);
+    $output = [];
+    $exitCode = 0;
+    @exec(
+        '"' . $ffmpeg . '" -y -i ' . escapeshellarg($sourcePath)
+        . ($filter !== '' ? ' -vf ' . escapeshellarg($filter) : '')
+        . ' -c:v libwebp -lossless 0 -q:v 80 -update 1 ' . escapeshellarg($streamPath),
+        $output,
+        $exitCode
+    );
+
+    return $exitCode === 0 && is_file($streamPath) && filesize($streamPath) > 0;
+}
+
+function atelierMakeStreamImage(string $sourcePath, string $streamPath): string
+{
+    // animated gifs would be flattened to a single frame, keep the original
+    if (strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION)) === 'gif') {
+        return '';
+    }
+
+    $size = @getimagesize($sourcePath);
+    if ($size === false) {
+        return '';
+    }
+
+    $created = atelierRescaleImageGd($sourcePath, $streamPath, 2000);
+    if (!$created) {
+        $created = atelierRescaleImageFfmpeg($sourcePath, $streamPath, (int) $size[0], (int) $size[1], 2000);
+    }
+
+    if (!$created || !is_file($streamPath) || filesize($streamPath) === 0) {
+        @unlink($streamPath);
+        return '';
+    }
+
+    return $streamPath;
+}
+
+function atelierMakeStreamVideo(string $sourcePath, string $streamPath): string
+{
+    $ffmpeg = atelierFindBinary('ffmpeg');
+    if ($ffmpeg === null) {
+        return '';
+    }
+
+    [$width, $height] = atelierProbeVideoSize($sourcePath);
+    $filter = atelierScaleFilter($width, $height, 1280);
+    $output = [];
+    $exitCode = 0;
+    @exec(
+        '"' . $ffmpeg . '" -y -i ' . escapeshellarg($sourcePath)
+        . ($filter !== '' ? ' -vf ' . escapeshellarg($filter) : '')
+        . ' -c:v libvpx-vp9 -b:v 0 -crf 34 -deadline good -cpu-used 4 -row-mt 1 -pix_fmt yuv420p'
+        . ' -c:a libopus -b:a 96k'
+        . ' ' . escapeshellarg($streamPath),
+        $output,
+        $exitCode
+    );
+
+    if ($exitCode !== 0 || !is_file($streamPath) || filesize($streamPath) === 0) {
+        @unlink($streamPath);
+        return '';
+    }
+
+    return $streamPath;
+}
+
+// Generate the streaming copy for an uploaded file and return its absolute
+// path, or '' when no smaller version could be produced (the caller then
+// keeps serving the original).
+function atelierStreamPath(string $absolutePath, string $mediaType): string
+{
+    if (!is_file($absolutePath)) {
+        return '';
+    }
+
+    $streamPath = '';
+    $filename = pathinfo($absolutePath, PATHINFO_FILENAME);
+    if ($mediaType === 'image') {
+        $streamPath = atelierMakeStreamImage($absolutePath, dirname($absolutePath) . '/' . $filename . '_stream.webp');
+    } elseif ($mediaType === 'video') {
+        $streamPath = atelierMakeStreamVideo($absolutePath, dirname($absolutePath) . '/' . $filename . '_stream.webm');
+    }
+
+    // only worth serving when it is genuinely smaller than the original
+    if ($streamPath !== '' && filesize($streamPath) >= filesize($absolutePath)) {
+        @unlink($streamPath);
+        return '';
+    }
+
+    return $streamPath;
+}
+
 function atelierStoreUploads(PDO $database, string $mediaId, array $files, int $startOrder = 0, array $customNames = []): int
 {
+    // transcoding can take a while for larger videos
+    @set_time_limit(0);
+
     $allowedTypes = [
         'image/jpeg' => 'image',
         'image/png' => 'image',
@@ -383,8 +578,8 @@ function atelierStoreUploads(PDO $database, string $mediaId, array $files, int $
 
     $fileInfo = new finfo(FILEINFO_MIME_TYPE);
         $insert = $database->prepare(
-        'INSERT INTO media_slides (media_id, slide_order, original_path, display_path, original_name, mime_type, media_type, file_size, thumbnail_path)
-         VALUES (:media_id, :slide_order, :original_path, :display_path, :original_name, :mime_type, :media_type, :file_size, :thumbnail_path)'
+        'INSERT INTO media_slides (media_id, slide_order, original_path, display_path, original_name, mime_type, media_type, file_size, thumbnail_path, stream_path)
+         VALUES (:media_id, :slide_order, :original_path, :display_path, :original_name, :mime_type, :media_type, :file_size, :thumbnail_path, :stream_path)'
     );
     $stored = 0;
     foreach (($files['tmp_name'] ?? []) as $index => $temporaryPath) {
@@ -422,7 +617,7 @@ function atelierStoreUploads(PDO $database, string $mediaId, array $files, int $
             throw new RuntimeException('unable to store an uploaded file.');
         }
 
-                $relativePath = '../media/atelier/' . $mediaIdSafe . '/' . $filename;
+        $relativePath = '../media/atelier/' . $mediaIdSafe . '/' . $filename;
         $thumbnailPath = '';
         if ($mediaType === 'video') {
             $thumbFilename = pathinfo($filename, PATHINFO_FILENAME) . '_thumb.jpg';
@@ -430,6 +625,12 @@ function atelierStoreUploads(PDO $database, string $mediaId, array $files, int $
             if (atelierVideoThumb($destination, $thumbFullPath)) {
                 $thumbnailPath = '../media/atelier/' . $mediaIdSafe . '/' . $thumbFilename;
             }
+        }
+        // streaming copy (webp/webm); '' means the original is served instead
+        $streamPath = '';
+        $generatedStream = atelierStreamPath($destination, $mediaType);
+        if ($generatedStream !== '') {
+            $streamPath = '../media/atelier/' . $mediaIdSafe . '/' . basename($generatedStream);
         }
         $insert->execute([
             ':media_id' => $mediaId,
@@ -441,6 +642,7 @@ function atelierStoreUploads(PDO $database, string $mediaId, array $files, int $
             ':media_type' => $mediaType,
             ':file_size' => filesize($destination),
             ':thumbnail_path' => $thumbnailPath,
+            ':stream_path' => $streamPath,
         ]);
         $stored++;
     }
