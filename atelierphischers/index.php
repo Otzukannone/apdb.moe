@@ -661,7 +661,6 @@ $entries = atelierEntries($database);
         <div class="media-modal__content">
           <div class="media-modal__meta">
             <span id="modalYear">year</span>
-            <span>atelier</span>
           </div>
           <h2 id="mediaTitle">title</h2>
           <p id="mediaDescription">description</p>

@@ -195,6 +195,28 @@ function atelierEntries(PDO $database): array
     return $items;
 }
 
+// YouTube-style short id: 11 characters over a 62-symbol alphabet
+// (~62^11 combinations), collision-checked against both the database
+// and the media folder name.
+function atelierGenerateId(PDO $database): string
+{
+    $alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    $length = strlen($alphabet);
+
+    do {
+        $id = '';
+        for ($i = 0; $i < 11; $i++) {
+            $id .= $alphabet[random_int(0, $length - 1)];
+        }
+        $check = $database->prepare('SELECT COUNT(*) FROM media_items WHERE id = :id');
+        $check->execute([':id' => $id]);
+        $taken = (int) $check->fetchColumn() > 0
+            || is_dir(__DIR__ . '/../media/atelier/' . $id);
+    } while ($taken);
+
+    return $id;
+}
+
 function atelierSaveEntry(PDO $database, array $entry): void
 {
     $database->beginTransaction();

@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $tagList = array_values(array_filter(array_map('trim', preg_split('/[,\n]+/', $tags) ?: []), static function ($tag) { return $tag !== ''; }));
 
-            $entryId = $action === 'save' && $id !== '' ? $id : 'atelier_' . substr(md5((string) microtime(true) . $title), 0, 8);
+            $entryId = $action === 'save' && $id !== '' ? $id : atelierGenerateId($database);
             $uploadNotice = '';
             atelierSaveEntry($database, [
               'id' => $entryId,
