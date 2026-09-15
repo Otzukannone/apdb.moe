@@ -258,6 +258,17 @@ $entries = atelierEntries($database);
         box-shadow: 0 30px 80px rgba(0, 0, 0, 0.36);
       }
 
+      .media-modal__stage {
+        position: relative;
+        display: flex;
+        min-width: 0;
+        min-height: 0;
+      }
+
+      .media-modal__stage .media-modal__image {
+        flex: 1;
+      }
+
       .media-modal__image {
         min-width: 0;
         min-height: 0;
@@ -280,19 +291,33 @@ $entries = atelierEntries($database);
         position: absolute;
         top: 50%;
         z-index: 2;
-        width: 34px;
-        height: 34px;
+        width: 28px;
+        height: 28px;
         transform: translateY(-50%);
-        border: 1px solid rgba(255,255,255,0.5);
+        border: 1px solid rgba(255, 255, 255, 0.28);
         border-radius: 50%;
-        background: rgba(0,0,0,0.55);
+        background: rgba(0, 0, 0, 0.26);
         color: #fff;
         font: inherit;
         cursor: pointer;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 140ms ease, background 140ms ease;
       }
 
-      .media-modal__nav--previous { left: 16px; }
-      .media-modal__nav--next { right: 16px; }
+      .media-modal__nav:hover {
+        background: rgba(0, 0, 0, 0.45);
+      }
+
+      /* proximity fade: opacity follows cursor distance (driven in JS);
+         :focus-within keeps them up for keyboard users */
+      .media-modal__stage:focus-within .media-modal__nav {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .media-modal__nav--previous { left: 12px; }
+      .media-modal__nav--next { right: 12px; }
 
       .media-modal__nav[hidden],
       .media-modal__counter[hidden] {
@@ -365,19 +390,36 @@ $entries = atelierEntries($database);
 
       .media-modal__download {
         display: inline-flex;
-        align-self: flex-start;
+        align-items: center;
+        justify-content: center;
+        appearance: none;
+        width: 36px;
+        height: 36px;
+        padding: 0;
         border: 1px solid rgba(13, 19, 35, 0.2);
         border-radius: 999px;
-        padding: 8px 14px;
         background: rgba(255, 255, 255, 0.5);
         color: var(--ink);
         font: inherit;
-        font-size: 0.72rem;
-        letter-spacing: 0.06em;
-        text-transform: lowercase;
         text-decoration: none;
         cursor: pointer;
         transition: all 140ms ease;
+      }
+
+      .media-modal__download svg {
+        display: block;
+        width: 18px;
+        height: 18px;
+      }
+
+      .media-modal__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .media-modal__actions .media-modal__download {
+        align-self: auto;
       }
 
       .media-modal__download:hover {
@@ -610,10 +652,12 @@ $entries = atelierEntries($database);
       <div class="media-modal__backdrop" data-close="true"></div>
       <div class="media-modal__panel" role="dialog" aria-modal="true" aria-labelledby="mediaTitle">
         <button class="media-modal__close" id="mediaCloseButton" type="button" aria-label="Close viewer">×</button>
-        <button class="media-modal__nav media-modal__nav--previous" id="previousSlide" type="button" aria-label="Previous slide">‹</button>
-        <button class="media-modal__nav media-modal__nav--next" id="nextSlide" type="button" aria-label="Next slide">›</button>
-        <span class="media-modal__counter" id="slideCounter" aria-live="polite"></span>
-        <div class="media-modal__image" id="modalImage"></div>
+        <div class="media-modal__stage">
+          <button class="media-modal__nav media-modal__nav--previous" id="previousSlide" type="button" aria-label="Previous slide">‹</button>
+          <div class="media-modal__image" id="modalImage"></div>
+          <button class="media-modal__nav media-modal__nav--next" id="nextSlide" type="button" aria-label="Next slide">›</button>
+          <span class="media-modal__counter" id="slideCounter" aria-live="polite"></span>
+        </div>
         <div class="media-modal__content">
           <div class="media-modal__meta">
             <span id="modalYear">year</span>
@@ -622,7 +666,14 @@ $entries = atelierEntries($database);
           <h2 id="mediaTitle">title</h2>
           <p id="mediaDescription">description</p>
           <div class="media-modal__tags" id="modalTags"></div>
-          <a class="media-modal__download" id="modalDownload" href="#" download hidden>download original</a>
+          <div class="media-modal__actions">
+            <a class="media-modal__download" id="modalDownload" href="#" download hidden aria-label="download original file" title="download original">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            </a>
+            <button class="media-modal__download" id="modalShare" type="button" aria-label="copy share link" title="copy link">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="m8.7 10.7 6.6-3.4"/><path d="m8.7 13.3 6.6 3.4"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -651,12 +702,14 @@ $entries = atelierEntries($database);
       const editorCloseButton = document.getElementById('editorCloseButton');
       const mediaCloseButton = document.getElementById('mediaCloseButton');
       const modalDownload = document.getElementById('modalDownload');
+      const modalShare = document.getElementById('modalShare');
       const closeTriggers = document.querySelectorAll('[data-close="true"]');
 
       let currentMode = 'grid';
       let currentDensity = 'default';
       let currentSlides = [];
       let currentSlideIndex = 0;
+      let currentEntryId = '';
 
       function applyLayout() {
         body.classList.toggle('list-mode', currentMode === 'list');
@@ -684,6 +737,25 @@ $entries = atelierEntries($database);
         });
       });
 
+      const SHARE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="m8.7 10.7 6.6-3.4"/><path d="m8.7 13.3 6.6 3.4"/></svg>';
+      const COPIED_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>';
+
+      function entryShareUrl(id) {
+        return location.origin + location.pathname + '?id=' + encodeURIComponent(id);
+      }
+
+      function updateShareUrl() {
+        try {
+          const sharedUrl = currentEntryId !== '' ? '?id=' + encodeURIComponent(currentEntryId) : location.pathname;
+          history.replaceState(null, '', sharedUrl);
+        } catch (error) {
+          // older browsers / restricted contexts: sharing still works via the button
+        }
+        modalShare.hidden = currentEntryId === '';
+        modalShare.innerHTML = SHARE_ICON;
+        modalShare.title = 'copy link';
+      }
+
       function closeModal() {
         modalImage.querySelectorAll('video').forEach((video) => {
           video.pause();
@@ -693,6 +765,9 @@ $entries = atelierEntries($database);
         modalImage.innerHTML = '';
         modal.classList.remove('open');
         modal.setAttribute('aria-hidden', 'true');
+        currentEntryId = '';
+        updateShareUrl();
+        fadeNavsOut();
       }
 
       function closeEditor() {
@@ -729,6 +804,7 @@ $entries = atelierEntries($database);
 
       function openModal(card) {
         const title = card.dataset.title || 'untitled';
+        currentEntryId = card.dataset.id || '';
         const year = card.dataset.year || 'draft';
         const description = card.dataset.description || 'no notes yet.';
         const image = card.dataset.image || '';
@@ -752,6 +828,7 @@ $entries = atelierEntries($database);
         });
 
         renderCurrentSlide();
+        updateShareUrl();
 
         modal.classList.add('open');
         modal.setAttribute('aria-hidden', 'false');
@@ -769,6 +846,11 @@ $entries = atelierEntries($database);
             const video = document.createElement('video');
             video.controls = true;
             video.preload = 'metadata';
+            // hide the browser's built-in "Download" entry in the player menu
+            video.setAttribute('controlslist', 'nodownload');
+            if ('controlsList' in video) {
+              video.controlsList.add('nodownload');
+            }
             if (slide.thumbnail_path) {
               video.poster = slide.thumbnail_path;
             }
@@ -799,22 +881,64 @@ $entries = atelierEntries($database);
         }
 
         const hasSlides = currentSlides.length > 1;
-        previousSlide.hidden = !hasSlides;
-        nextSlide.hidden = !hasSlides;
+        // no wrap-around: arrows vanish at the first/last slide
+        previousSlide.hidden = !hasSlides || currentSlideIndex === 0;
+        nextSlide.hidden = !hasSlides || currentSlideIndex === currentSlides.length - 1;
         slideCounter.hidden = !hasSlides;
         slideCounter.textContent = (currentSlideIndex + 1) + ' / ' + currentSlides.length;
       }
 
       previousSlide.addEventListener('click', () => {
-        if (currentSlides.length < 2) return;
-        currentSlideIndex = (currentSlideIndex - 1 + currentSlides.length) % currentSlides.length;
-        renderCurrentSlide();
+        if (currentSlideIndex > 0) {
+          currentSlideIndex--;
+          renderCurrentSlide();
+        }
       });
 
       nextSlide.addEventListener('click', () => {
-        if (currentSlides.length < 2) return;
-        currentSlideIndex = (currentSlideIndex + 1) % currentSlides.length;
-        renderCurrentSlide();
+        if (currentSlideIndex < currentSlides.length - 1) {
+          currentSlideIndex++;
+          renderCurrentSlide();
+        }
+      });
+
+      // proximity fade: the closer the cursor is to an arrow, the more
+      // opaque it gets; far away (or outside the media area) it fades out.
+      const stage = document.querySelector('.media-modal__stage');
+      const navFadeRadius = 260;   // px from the arrow where the fade ends
+      const navFadeFloor = 0.12;   // minimum opacity while over the media
+
+      function updateNavProximity(event) {
+        [previousSlide, nextSlide].forEach((arrow) => {
+          if (arrow.hidden) {
+            return;
+          }
+          const rect = arrow.getBoundingClientRect();
+          const distance = Math.hypot(
+            event.clientX - (rect.left + rect.width / 2),
+            event.clientY - (rect.top + rect.height / 2)
+          );
+          const closeness = Math.max(0, 1 - distance / navFadeRadius);
+          arrow.style.opacity = (navFadeFloor + (1 - navFadeFloor) * closeness).toFixed(3);
+          arrow.style.pointerEvents = closeness > 0.2 ? 'auto' : 'none';
+        });
+      }
+
+      function fadeNavsOut() {
+        [previousSlide, nextSlide].forEach((arrow) => {
+          arrow.style.opacity = '';
+          arrow.style.pointerEvents = '';
+        });
+      }
+
+      stage.addEventListener('mousemove', updateNavProximity);
+      stage.addEventListener('mouseleave', fadeNavsOut);
+      [previousSlide, nextSlide].forEach((arrow) => {
+        arrow.addEventListener('focus', () => {
+          arrow.style.opacity = '1';
+          arrow.style.pointerEvents = 'auto';
+        });
+        arrow.addEventListener('blur', fadeNavsOut);
       });
 
       document.querySelectorAll('.post-card').forEach((card) => {
@@ -907,12 +1031,45 @@ $entries = atelierEntries($database);
         closeEditor();
       }));
 
+      modalShare.addEventListener('click', () => {
+        if (currentEntryId === '') {
+          return;
+        }
+
+        const shareUrl = entryShareUrl(currentEntryId);
+        const markCopied = () => {
+          modalShare.innerHTML = COPIED_ICON;
+          modalShare.title = 'link copied';
+          window.setTimeout(() => {
+            modalShare.innerHTML = SHARE_ICON;
+            modalShare.title = 'copy link';
+          }, 1400);
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(shareUrl).then(markCopied).catch(() => {
+            window.prompt('copy this link:', shareUrl);
+          });
+        } else {
+          window.prompt('copy this link:', shareUrl);
+        }
+      });
+
       document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
           closeModal();
           closeEditor();
         }
       });
+
+      // deep link: atelierphischers/?id=atelier_xxxx opens that entry directly
+      const requestedId = new URLSearchParams(window.location.search).get('id');
+      if (requestedId) {
+        const requestedCard = document.querySelector('.post-card[data-id="' + (window.CSS && CSS.escape ? CSS.escape(requestedId) : requestedId.replace(/"/g, '')) + '"]');
+        if (requestedCard) {
+          openModal(requestedCard);
+        }
+      }
 
       applyLayout();
     </script>
