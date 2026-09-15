@@ -510,18 +510,21 @@
         min-width: 390px;
       }
 
-      /* guestbook window: the atabook iframe fills the whole body */
+      /* guestbook window: the iframe renders the full atabook page (its own
+         internal scrollbar is cross-origin and cannot be styled), so the
+         window body scrolls instead and provides the pink scrollbar */
       .guestbook-body {
         padding: 0;
         height: calc(100% - 42px);
         max-height: calc(100% - 42px);
-        overflow: hidden;
+        overflow-y: auto;
+        overflow-x: hidden;
       }
 
       .guestbook-frame {
         display: block;
         width: 100%;
-        height: 100%;
+        height: 4800px;
         border: 0;
       }
 
@@ -529,7 +532,6 @@
         white-space: nowrap;
         font-size: 0.94rem;
         letter-spacing: 0.05em;
-        text-transform: uppercase;
         line-height: 1.5;
       }
 
@@ -678,11 +680,9 @@
             </div>
           </div>
           <div class="window__body">
-            <div class="skill-grid">
-              <div class="skill-pill"><span class="badge">Ps</span> Photoshop</div>
-              <div class="skill-pill"><span class="badge">Ai</span> Illustrator</div>
-              <div class="skill-pill"><span class="badge">Id</span> Indesign</div>
-              <div class="skill-pill"><span class="badge">Xd</span> XD</div>
+            <div class="info-block">
+              <p class="window-copy">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+              <p class="window-copy">Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur, excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
             </div>
           </div>
         </section>
@@ -697,10 +697,10 @@
           </div>
           <div class="window__body">
             <ul class="contact-list">
-              <li><strong>twitter</strong> : @pirellism</li>
-              <li><strong>instagram</strong> : @x</li>
-              <li><strong>github</strong> : @Otzukannone</li>
-              <li><strong>email</strong> : tt.albertpirelius@gmail.com</li>
+              <li><strong>TWITTER</strong> : @pirellism</li>
+              <li><strong>INSTAGRAM</strong> : @pageapdfsds</li>
+              <li><strong>GITHUB</strong> : @Otzukannone</li>
+              <li><strong>EMAIL</strong> : tengo sueno nigga</li>
             </ul>
           </div>
         </section>
